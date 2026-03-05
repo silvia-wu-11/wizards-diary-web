@@ -1,0 +1,629 @@
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
+// DiaryView — keyboard nav + image preview fix
+import { motion, AnimatePresence } from 'motion/react';
+import { ArrowLeft, CalendarDays, Edit3, Trash2, Share2, ChevronLeft, ChevronRight, Book, Wand2, Image as ImageIcon, X, Loader2, Flame } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
+import { useDiaryStore } from '../store';
+import { cn } from '../components/UI';
+import { ImagePreviewGallery, DiaryImage } from '../components/ImagePreviewGallery';
+import { MagicCalendar } from '../components/MagicCalendar';
+
+const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        const maxDim = 2048;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width *= ratio;
+          height *= ratio;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        let quality = 0.8;
+        let dataUrl = canvas.toDataURL('image/jpeg', quality);
+        while (dataUrl.length * 0.75 > maxSizeMB * 1024 * 1024 && quality > 0.1) {
+          quality -= 0.1;
+          dataUrl = canvas.toDataURL('image/jpeg', quality);
+        }
+        resolve(dataUrl);
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+};
+
+export function DiaryView() {
+  const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { entries, deleteEntry, deleteBook, addEntry, updateEntry, books } = useDiaryStore();
+  
+  const [isOpen, setIsOpen] = useState(false);
+  const [isHoveringCover, setIsHoveringCover] = useState(false);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  const isNewEntry = id === 'new';
+  const [isEditing, setIsEditing] = useState(isNewEntry);
+  
+  const calendarRef = useRef<HTMLDivElement>(null);
+
+  const paramBookId = searchParams.get('bookId');
+  const entry = isNewEntry ? null : entries.find(e => e.id === id);
+  
+  const [editTitle, setEditTitle] = useState(entry?.title || "");
+  const [editContent, setEditContent] = useState(entry?.content || "");
+  const [images, setImages] = useState<DiaryImage[]>(
+    entry?.images?.map(url => ({ id: Math.random().toString(36).substring(2, 9), url, loading: false })) || []
+  );
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const availableSlots = 6 - images.length;
+    if (availableSlots <= 0) return;
+    
+    const filesToProcess = files.slice(0, availableSlots);
+    const newImages = filesToProcess.map(() => ({ id: Math.random().toString(36).substring(2, 9), url: '', loading: true }));
+    setImages(prev => [...prev, ...newImages]);
+    
+    for (let i = 0; i < filesToProcess.length; i++) {
+      const file = filesToProcess[i];
+      const id = newImages[i].id;
+      try {
+        const compressedUrl = await compressImage(file, 2);
+        setImages(prev => prev.map(img => img.id === id ? { ...img, url: compressedUrl, loading: false } : img));
+      } catch (err) {
+        setImages(prev => prev.filter(img => img.id !== id));
+      }
+    }
+    e.target.value = '';
+  };
+
+  // Update edit state if navigating to a different entry
+  useEffect(() => {
+    setIsEditing(id === 'new');
+    setEditTitle(entry?.title || "");
+    setEditContent(entry?.content || "");
+    setImages(entry?.images?.map(url => ({ id: Math.random().toString(36).substring(2, 9), url, loading: false })) || []);
+  }, [id, entry]);
+
+  const handleSave = () => {
+    if (isNewEntry) {
+      addEntry({
+        bookId: paramBookId!,
+        title: editTitle.trim() || 'Untitled Memory',
+        content: editContent,
+        date: new Date().toISOString(),
+        images: images.filter(img => !img.loading).map(img => img.url),
+        tags: [],
+      });
+      navigate('/');
+    } else if (entry) {
+      updateEntry(entry.id, {
+        title: editTitle.trim() || 'Untitled Memory',
+        content: editContent,
+        images: images.filter(img => !img.loading).map(img => img.url),
+      });
+      setIsEditing(false);
+    }
+  };
+
+  const handleDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (entry) {
+      deleteEntry(entry.id);
+    }
+    navigate('/');
+  };
+
+  // Determine the current book
+  const currentBookId = isNewEntry ? paramBookId : entry?.bookId;
+  const currentBook = books.find(b => b.id === currentBookId);
+
+  // Compute prev/next entries early so useEffects can reference them
+  const bookEntries = entries
+    .filter(e => e.bookId === currentBookId)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const currentIndex = isNewEntry ? -1 : bookEntries.findIndex(e => e.id === entry?.id);
+  const prevEntry = currentIndex > 0 ? bookEntries[currentIndex - 1] : null;
+  const nextEntry = (currentIndex >= 0 && currentIndex < bookEntries.length - 1) ? bookEntries[currentIndex + 1] : null;
+
+  useEffect(() => {
+    // If not creating a new entry and no entry found, or if new but no bookId provided
+    if ((!isNewEntry && !entry) || (isNewEntry && !paramBookId)) {
+      navigate('/');
+    }
+  }, [entry, isNewEntry, paramBookId, navigate]);
+
+  // Handle clicking outside to close calendar
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+        setIsCalendarOpen(false);
+      }
+    }
+    if (isCalendarOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isCalendarOpen]);
+
+  // Keyboard left/right navigation for page turning
+  useEffect(() => {
+    if (!isOpen || isEditing) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      // Ignore if focus is inside an input/textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === 'ArrowLeft' && prevEntry) {
+        navigate(`/diary/${prevEntry.id}`);
+      } else if (e.key === 'ArrowRight' && nextEntry) {
+        navigate(`/diary/${nextEntry.id}`);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isEditing, prevEntry, nextEntry, navigate]);
+
+  if (!isNewEntry && !entry) return null;
+
+  const currentDateToDisplay = isNewEntry ? new Date().toISOString() : entry!.date;
+
+  return (
+    <div className="min-h-screen bg-[#2c2420] text-parchment-white flex flex-col font-sans overflow-hidden relative">
+      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&q=80')] bg-cover opacity-10 mix-blend-overlay pointer-events-none" />
+
+      {/* Top Navigation */}
+      <header className="flex justify-between items-center z-50 sticky top-0 bg-[#2c2420]/80 backdrop-blur-md border-b border-faded-gold/20 px-[24px] py-[16px] mx-[0px] mt-[0px] mb-[20px]">
+        <button 
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 text-faded-gold hover:text-white transition-colors font-['Cinzel'] font-bold text-lg group"
+        >
+          <div className="p-1 rounded-full border border-faded-gold/30 group-hover:bg-faded-gold/20 transition-all">
+            <ArrowLeft className="w-5 h-5" />
+          </div>
+          <span>Return</span>
+        </button>
+
+        <div className="relative" ref={calendarRef}>
+          <button 
+            onClick={(e) => { e.stopPropagation(); setIsCalendarOpen(!isCalendarOpen); }}
+            className={cn(
+              "flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all shadow-lg font-['Cinzel'] font-bold",
+              isCalendarOpen 
+                ? "bg-faded-gold text-[#2c2420] border-faded-gold shadow-[0_0_15px_rgba(201,184,150,0.4)]"
+                : "bg-white/10 border-faded-gold/50 text-faded-gold hover:bg-white/20 hover:border-faded-gold"
+            )}
+          >
+            <CalendarDays className="w-5 h-5" />
+            <span>{format(new Date(currentDateToDisplay), 'MMMM do, yyyy')}</span>
+            <ChevronLeft className={cn("w-4 h-4 ml-1 transition-transform", isCalendarOpen ? "rotate-90" : "-rotate-90")} />
+          </button>
+
+          <div className="relative right-16">
+            <AnimatePresence>
+              {isCalendarOpen && (
+                <MagicCalendar 
+                  currentDate={currentDateToDisplay}
+                  entries={bookEntries}
+                  onSelectDate={(dateStr, entryId) => {
+                    if (entryId) {
+                      setIsCalendarOpen(false);
+                      navigate(`/diary/${entryId}`);
+                    }
+                  }}
+                  onClose={() => setIsCalendarOpen(false)}
+                />
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </header>
+
+      {/* Center 3D Book Area */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-8 relative perspective-1000 z-10 overflow-visible mx-[24px] my-[20px]">
+        <div className="relative w-full max-w-5xl h-[70vh] flex justify-center items-center perspective-[2000px]">
+          
+          <AnimatePresence mode="wait">
+            {!isOpen ? (
+              // STATE A: Closed Book
+              <motion.div
+                key="closed-book"
+                initial={{ opacity: 0, scale: 0.8, rotateY: -10 }}
+                animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                exit={{ opacity: 0, scale: 0.9, rotateY: 20 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="w-full max-w-[420px] h-[620px] bg-leather rounded-r-3xl rounded-l-md shadow-[30px_20px_50px_rgba(0,0,0,0.9)] border-[6px] border-[#1a1412] relative cursor-pointer group flex items-center justify-center overflow-hidden"
+                onClick={() => setIsOpen(true)}
+                onMouseEnter={() => setIsHoveringCover(true)}
+                onMouseLeave={() => setIsHoveringCover(false)}
+              >
+                {/* Magical Book Texture Overlay */}
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?ixlib=rb-4.1.0&q=80')] bg-cover opacity-30 mix-blend-multiply" />
+                
+                {/* Book Spine Details */}
+                <div className="absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-black/80 via-black/40 to-transparent border-r border-white/5 z-10" />
+                <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-transparent to-white/10 z-10" />
+                
+                {/* Spine Ribs */}
+                {[15, 30, 50, 70, 85].map(top => (
+                  <div key={top} className="absolute left-0 w-10 h-3 bg-gradient-to-b from-[#1a1412] to-[#3a2c28] shadow-[0_2px_4px_rgba(0,0,0,0.8)] border-y border-white/5 z-20" style={{ top: `${top}%` }} />
+                ))}
+
+                {/* Magical Ornaments (SVG Border) */}
+                <svg className="absolute inset-0 w-full h-full p-6 text-faded-gold/40 pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+                   <rect x="8" y="6" width="84" height="88" fill="none" stroke="currentColor" strokeWidth="0.5" />
+                   <rect x="10" y="8" width="80" height="84" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1" />
+                   {/* Corner Accents */}
+                   <path d="M 8 16 L 16 8" fill="none" stroke="currentColor" strokeWidth="1" />
+                   <path d="M 92 16 L 84 8" fill="none" stroke="currentColor" strokeWidth="1" />
+                   <path d="M 8 84 L 16 92" fill="none" stroke="currentColor" strokeWidth="1" />
+                   <path d="M 92 84 L 84 92" fill="none" stroke="currentColor" strokeWidth="1" />
+                </svg>
+                
+                {/* Metal Corners */}
+                <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-faded-gold via-[#b39e75] to-[#5c4a2a] border-b-2 border-l-2 border-[#2a2214] rounded-bl-[40px] shadow-lg z-20" />
+                <div className="absolute bottom-0 right-0 w-16 h-16 bg-gradient-to-tl from-faded-gold via-[#b39e75] to-[#5c4a2a] border-t-2 border-l-2 border-[#2a2214] rounded-tl-[40px] shadow-lg z-20" />
+                <div className="absolute top-0 left-0 w-10 h-16 bg-gradient-to-br from-faded-gold to-[#5c4a2a] border-b-2 border-r-2 border-[#2a2214] rounded-br-[20px] shadow-lg z-20" />
+                <div className="absolute bottom-0 left-0 w-10 h-16 bg-gradient-to-tr from-faded-gold to-[#5c4a2a] border-t-2 border-r-2 border-[#2a2214] rounded-tr-[20px] shadow-lg z-20" />
+
+                {/* Center Magic Emblem */}
+                <motion.div 
+                  animate={{ 
+                    boxShadow: isHoveringCover ? "0 0 40px rgba(201,184,150,0.6), inset 0 0 20px rgba(201,184,150,0.3)" : "0 0 10px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.5)",
+                    scale: isHoveringCover ? 1.02 : 1
+                  }}
+                  className="relative z-30 w-56 h-72 border-4 border-faded-gold/80 rounded-[100%] flex flex-col items-center justify-center p-6 text-center gap-4 bg-[#2a1f1a]/80 backdrop-blur-sm transition-all duration-500 overflow-hidden"
+                >
+                  <div className="absolute inset-2 border-2 border-dashed border-faded-gold/40 rounded-[100%]" />
+                  <Wand2 className="w-12 h-12 text-faded-gold opacity-90 drop-shadow-[0_0_8px_#C9B896]" />
+                  <h2 className="font-['Cinzel'] text-faded-gold text-2xl font-bold uppercase tracking-widest line-clamp-3 drop-shadow-md z-10">
+                    {currentBook?.name || "Magical Diary"}
+                  </h2>
+                  <div className="w-12 h-0.5 bg-faded-gold/50 my-2" />
+                  <p className="font-['Caveat'] text-faded-gold/80 text-2xl mt-2 flex items-center gap-2">
+                    Open <Book className="w-4 h-4 inline" />
+                  </p>
+                </motion.div>
+                
+                {/* Floating particles on hover */}
+                {isHoveringCover && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="absolute inset-0 pointer-events-none overflow-hidden rounded-r-3xl z-40"
+                  >
+                    {[...Array(8)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ y: "100%", x: Math.random() * 100 + "%", opacity: 0 }}
+                        animate={{ y: "-20%", opacity: [0, 1, 0] }}
+                        transition={{ duration: 1.5 + Math.random() * 2, repeat: Infinity, delay: Math.random() * 2 }}
+                        className="absolute bottom-0 w-1.5 h-1.5 bg-faded-gold rounded-full shadow-[0_0_12px_#C9B896]"
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </motion.div>
+            ) : (
+              // STATE B: Open Book
+              <motion.div
+                key="open-book"
+                initial={{ opacity: 0, scale: 0.9, rotateX: 10 }}
+                animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+                transition={{ duration: 0.8, type: "spring", bounce: 0.3 }}
+                className="w-full max-w-6xl h-[80vh] flex flex-col md:flex-row relative shadow-[0_40px_80px_rgba(0,0,0,0.9)]"
+              >
+                {/* Book Background (Leather Cover extended) */}
+                <div className="absolute -inset-4 bg-leather rounded-lg -z-30 border-[6px] border-[#1a1412] shadow-2xl hidden md:block p-[0px]">
+                   <div className="absolute inset-0 bg-black/40 rounded-lg pointer-events-none" />
+                </div>
+                
+                {/* Paper Stack Thickness Shadows (Left) */}
+                <div className="hidden md:block absolute top-2 bottom-2 -left-2 w-4 bg-parchment rounded-l-md border-y border-l border-black/30 shadow-[-2px_0_5px_rgba(0,0,0,0.3)] -z-20" />
+                <div className="hidden md:block absolute top-1 bottom-1 -left-1 w-4 bg-parchment rounded-l-md border-y border-l border-black/20 shadow-[-1px_0_3px_rgba(0,0,0,0.2)] -z-10" />
+
+                {/* Paper Stack Thickness Shadows (Right) */}
+                <div className="hidden md:block absolute top-2 bottom-2 -right-2 w-4 bg-parchment rounded-r-md border-y border-r border-black/30 shadow-[2px_0_5px_rgba(0,0,0,0.3)] -z-20" />
+                <div className="hidden md:block absolute top-1 bottom-1 -right-1 w-4 bg-parchment rounded-r-md border-y border-r border-black/20 shadow-[1px_0_3px_rgba(0,0,0,0.2)] -z-10" />
+
+                {/* Left Page (Details & Tags) */}
+                <div className="flex-1 bg-parchment relative rounded-l-md md:border-r border-black/20 p-8 md:p-14 overflow-hidden shadow-[inset_-15px_0_30px_rgba(0,0,0,0.15)] group/left">
+                   <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/5 via-transparent to-black/10" />
+                   
+                   <motion.div 
+                     initial={{ opacity: 0, x: -20 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     transition={{ delay: 0.4 }}
+                     className="h-full flex flex-col relative z-10"
+                   >
+                     <div className="flex items-center gap-2 text-rusty-copper/60 font-['Cinzel'] mb-4 font-bold text-sm tracking-widest uppercase">
+                       <span>Memory Date:</span>
+                       <span>{format(new Date(currentDateToDisplay), 'MMMM do, yyyy')}</span>
+                     </div>
+
+                     {isEditing ? (
+                       <input
+                         type="text"
+                         value={editTitle}
+                         onChange={(e) => setEditTitle(e.target.value)}
+                         placeholder="Name this memory..."
+                         className="font-['Cinzel'] text-3xl lg:text-4xl text-vintage-burgundy font-bold mb-8 border-b-2 border-vintage-burgundy/20 pb-6 leading-tight drop-shadow-sm bg-transparent outline-none w-full placeholder-vintage-burgundy/30"
+                       />
+                     ) : (
+                       <h1 className="font-['Cinzel'] text-3xl lg:text-4xl text-vintage-burgundy font-bold mb-8 border-b-2 border-vintage-burgundy/20 pb-6 leading-tight drop-shadow-sm">
+                         {isNewEntry ? "A New Memory" : entry?.title}
+                       </h1>
+                     )}
+                     
+                     {/* Magical Illustration Placeholder based on tags or just decorative */}
+                     <div className="w-full flex-1 min-h-[200px] border-2 border-dashed border-vintage-burgundy/20 rounded-xl mb-8 flex flex-col items-center justify-center bg-black/5 opacity-80 mix-blend-multiply relative overflow-hidden">
+                        {images.length > 0 ? (
+                          <ImagePreviewGallery 
+                            images={images} 
+                            setImages={setImages} 
+                            isEditing={isEditing} 
+                            previewIndex={previewIndex} 
+                            setPreviewIndex={setPreviewIndex} 
+                            layoutStyle="grid" 
+                          />
+                        ) : (
+                          <>
+                            <p className="font-['Caveat'] text-2xl text-vintage-burgundy/50 z-10 rotate-[-5deg]">~ A memory captured in time ~</p>
+                          </>
+                        )}
+                     </div>
+
+                     {isEditing && (
+                       <div className="mb-4 flex justify-center">
+                         {images.length >= 6 ? (
+                           <div className="px-4 py-2 flex items-center gap-2 text-rusty-copper/60 bg-rusty-copper/10 rounded-full border border-rusty-copper/20 cursor-not-allowed">
+                             <ImageIcon className="w-5 h-5" />
+                             <span className="font-['Cinzel'] font-bold text-sm">Maximum 6 images</span>
+                           </div>
+                         ) : (
+                           <label className="px-4 py-2 flex items-center gap-2 text-rusty-copper hover:text-white bg-rusty-copper/10 hover:bg-rusty-copper rounded-full border border-rusty-copper/40 hover:border-rusty-copper transition-all cursor-pointer font-['Cinzel'] font-bold text-sm shadow-sm group">
+                             <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
+                             <ImageIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                             <span>Add Magical Image</span>
+                           </label>
+                         )}
+                       </div>
+                     )}
+
+                     {!isNewEntry && entry?.tags && entry.tags.length > 0 && (
+                       <div className="mt-auto">
+                         <div className="flex flex-wrap gap-2">
+                           {entry.tags.map(tag => (
+                             <span key={tag} className="bg-rusty-copper/10 text-rusty-copper px-3 py-1 rounded-sm font-['Cinzel'] text-sm font-bold border border-rusty-copper/20 hover:bg-rusty-copper/20 transition-colors">
+                               #{tag}
+                             </span>
+                           ))}
+                         </div>
+                       </div>
+                     )}
+                   </motion.div>
+                   
+                   {/* Decorative Corner */}
+                   <div className="absolute bottom-6 left-6 w-20 h-20 border-l-[3px] border-b-[3px] border-vintage-burgundy/20 rounded-bl-2xl pointer-events-none" />
+                   <div className="absolute top-6 left-6 w-20 h-20 border-l-[3px] border-t-[3px] border-vintage-burgundy/20 rounded-tl-2xl pointer-events-none" />
+                </div>
+                
+                {/* Center fold shadow */}
+                <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-16 -translate-x-1/2 bg-gradient-to-r from-black/10 via-black/40 to-black/10 z-20 pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]" />
+                {/* Stitching binding in the middle */}
+                <div className="hidden md:flex absolute left-1/2 top-10 bottom-10 -translate-x-1/2 w-2 flex-col justify-between py-8 z-30 pointer-events-none opacity-60">
+                   {[...Array(6)].map((_, i) => (
+                     <div key={i} className="w-full h-1 bg-parchment-white shadow-sm rotate-[-10deg]" />
+                   ))}
+                </div>
+
+                {/* Right Page (Content) */}
+                <div className="flex-1 bg-parchment relative rounded-r-md p-8 md:p-14 overflow-y-auto magic-scrollbar shadow-[inset_15px_0_30px_rgba(0,0,0,0.15)] group/right">
+                  <div className="absolute inset-0 pointer-events-none bg-gradient-to-l from-black/5 via-transparent to-black/10" />
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="relative z-10"
+                  >
+                    {isEditing ? (
+                      <textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        placeholder="Let your magic flow through the quill..."
+                        className="w-full h-full min-h-[400px] font-['Caveat'] text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide bg-transparent outline-none resize-none placeholder-[#2c2420]/30"
+                        autoFocus
+                      />
+                    ) : (
+                      <p className="font-['Caveat'] text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide">
+                        {isNewEntry ? "Click the edit button below to write your first entry in this magical diary..." : entry?.content}
+                      </p>
+                    )}
+                  </motion.div>
+                  
+                  {/* Decorative Corner */}
+                  <div className="absolute bottom-6 right-6 w-20 h-20 border-r-[3px] border-b-[3px] border-vintage-burgundy/20 rounded-br-2xl pointer-events-none" />
+                  <div className="absolute top-6 right-6 w-20 h-20 border-r-[3px] border-t-[3px] border-vintage-burgundy/20 rounded-tr-2xl pointer-events-none" />
+                </div>
+                
+                {/* Close Button overlay */}
+                <button 
+                  onClick={() => setIsOpen(false)}
+                  className="absolute top-4 right-4 md:-right-6 md:-top-6 z-50 p-3 bg-[#2c2420] text-faded-gold rounded-full hover:bg-rusty-copper transition-colors shadow-xl border-2 border-faded-gold group z-100"
+                >
+                  <span className="sr-only">Close Book</span>
+                  <Book className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </button>
+                
+                {/* Page turn zones (Faint touch areas) */}
+                {prevEntry && (
+                  <div 
+                    className="absolute top-0 bottom-0 left-0 w-12 flex items-center justify-start group hidden md:flex z-[3] pointer-events-none"
+                    title="Previous Entry"
+                  >
+                    <div
+                      onClick={(e) => { e.stopPropagation(); navigate(`/diary/${prevEntry.id}`); }}
+                      className="w-12 h-12 bg-[#2c2420]/80 rounded-r-full flex items-center justify-center text-faded-gold shadow-[2px_0_10px_rgba(0,0,0,0.3)] opacity-30 group-hover:opacity-100 transition-all -translate-x-full group-hover:translate-x-0 border-y border-r border-faded-gold/30 cursor-pointer pointer-events-auto"
+                    >
+                      <ChevronLeft className="w-7 h-7 mr-1" />
+                    </div>
+                  </div>
+                )}
+                
+                {nextEntry && (
+                  <div 
+                    className="absolute top-0 bottom-0 right-0 w-1/2 bg-gradient-to-l from-faded-gold/5 to-transparent flex items-center justify-end group hidden md:flex z-40 pointer-events-none"
+                    title="Next Entry"
+                  >
+                    <div
+                      onClick={(e) => { e.stopPropagation(); navigate(`/diary/${nextEntry.id}`); }}
+                      className="w-12 h-12 bg-[#2c2420]/80 rounded-l-full flex items-center justify-center text-faded-gold shadow-[-2px_0_10px_rgba(0,0,0,0.3)] opacity-30 group-hover:opacity-100 transition-all translate-x-full group-hover:translate-x-0 border-y border-l border-faded-gold/30 cursor-pointer pointer-events-auto"
+                    >
+                      <ChevronRight className="w-7 h-7 ml-1" />
+                    </div>
+                  </div>
+                )}
+                
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* Bottom Actions */}
+      <footer className="p-6 bg-gradient-to-t from-[#1a1412] via-[#1a1412]/80 to-transparent z-20 sticky bottom-0 flex justify-center gap-4 sm:gap-6 mt-auto">
+        {isEditing && isOpen && (
+          <ActionButton 
+            icon={<Edit3 className="w-5 h-5" />} 
+            label="Save" 
+            onClick={handleSave}
+            className="bg-faded-gold text-[#2c2420] border-faded-gold hover:bg-yellow hover:border-white shadow-[0_0_15px_rgba(201,184,150,0.6)]"
+          />
+        )}
+        {!isEditing && isOpen && (
+          <ActionButton 
+            icon={<Edit3 className="w-5 h-5" />} 
+            label="Edit" 
+            onClick={() => setIsEditing(true)}
+          />
+        )}
+        {!isOpen && (
+          <ActionButton 
+            icon={<Trash2 className="w-5 h-5" />} 
+            label="Obliviate" 
+            onClick={handleDelete}
+            className="hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/50"
+          />
+        )}
+      </footer>
+
+      {/* Magical Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[100] bg-[#1a1412]/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setShowDeleteConfirm(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-[#2c2420] rounded-xl border-2 border-faded-gold/40 shadow-[0_0_40px_rgba(153,27,27,0.4)] overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Parchment texture background */}
+              <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/aged-paper.png")' }}></div>
+              
+              <div className="relative p-8 flex flex-col items-center text-center">
+                {/* Magical Fire Element */}
+                <div className="relative mb-6">
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      opacity: [0.5, 0.8, 0.5]
+                    }}
+                    transition={{ 
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute inset-0 bg-red-500/30 blur-xl rounded-full"
+                  />
+                  <motion.div
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <Flame className="w-16 h-16 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+                  </motion.div>
+                </div>
+
+                <h3 className="text-2xl font-serif text-faded-gold mb-3 font-bold tracking-wide">
+                  Obliviate Diary?
+                </h3>
+                
+                <p className="text-[#d4c5b0] mb-8 font-serif">
+                  Are you sure you want to banish this entire diary to the void? This spell cannot be undone, and all memories within will be lost forever.
+                </p>
+
+                <div className="flex gap-4 w-full justify-center">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-6 py-2.5 rounded-full border border-faded-gold/30 text-faded-gold hover:bg-faded-gold/10 transition-colors font-serif"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    className="px-6 py-2.5 rounded-full bg-red-900/40 border border-red-500/50 text-red-300 hover:bg-red-800/60 hover:text-white hover:border-red-400 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] transition-all font-serif flex items-center gap-2 group"
+                  >
+                    <Wand2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                    Yes
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ActionButton({ icon, label, onClick, className }: { icon: React.ReactNode, label: string, onClick?: () => void, className?: string }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 rounded-full border-2 border-[#C9B896]/60 bg-[#2c2420]/90 text-[#C9B896] hover:bg-[#C9B896]/20 hover:border-[#C9B896] hover:text-white transition-all backdrop-blur-sm group font-['Cinzel'] font-bold shadow-[0_4px_15px_rgba(0,0,0,0.5)]",
+        className
+      )}
+    >
+      <span className="group-hover:scale-110 group-hover:-rotate-12 transition-transform">{icon}</span>
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}

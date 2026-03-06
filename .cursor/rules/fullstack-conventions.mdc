@@ -25,6 +25,8 @@ alwaysApply: false
 - 把与「魔法日记本」相关的人设提示词、系统 prompt 集中管理在一个明确的位置（例如 `lib/ai/prompt.ts`），方便在面试时展示 prompt 设计。
 
 ## 测试（TDD：先写测再实现）
+- **测试框架**：Vitest（单测与集成测运行器）+ Supertest（在 Vitest 中测 HTTP API）+ Playwright（E2E，浏览器自动化）；写测试与实现时统一使用这套组合。
+- **BDD 行为描述**：需求与 spec 用 **Requirement + GIVEN/WHEN/THEN** 书写：Requirement 用「系统 SHALL …」；每个 Scenario 用 GIVEN（前提）→ WHEN（操作）→ THEN（结果）。写测试时与 Scenario 一一对应（一个 Scenario 对应一个 it(...)），便于从 spec 直接生成或核对测试用例。
 - **先写测再实现**：新增功能时，先根据 spec/需求写出或更新测试（红），再写实现直到通过（绿），再视情况重构；重要业务逻辑、数据处理和关键 API 必须有对应测试。
 - 测试文件命名清晰，如 `*.test.ts` / `*.spec.ts`，可与源码同目录或放在 `__tests__` 中，保证「一眼能看出在测什么」。
 

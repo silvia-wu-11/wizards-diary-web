@@ -15,6 +15,7 @@ alwaysApply: true
 - **样式**：Tailwind CSS
 - **数据层**：PostgreSQL + Prisma ORM
 - **认证**：NextAuth.js
+- **测试框架**：Vitest（单测/集成）+ Supertest（API 集成）+ Playwright（E2E）
 - **工程质量**：TDD（尽量让测试与实现同步推进）
 
 ## 我的背景（请据此调整解释深度）
@@ -35,6 +36,7 @@ alwaysApply: true
 - **期望的目录结构**：
   - 当前能力规格：`openspec/specs/<domain>/spec.md`（按领域分，如 auth、diary-api、ai-chat）。
   - 单次变更：`openspec/changes/<change-id>/`，内含 `proposal.md`、`design.md`、`tasks.md` 及 `specs/` 下的 spec delta。
+- **BDD 行为描述规范**：在 `spec.md` 中用 **Requirement + GIVEN/WHEN/THEN** 描述行为：每个 Requirement 用「系统 SHALL …」写清契约，其下用 Scenario 列出具体场景，每个 Scenario 用 GIVEN（前置条件）、WHEN（用户/系统动作）、THEN（预期结果，可多条 AND）书写；这样既可作为需求文档，也可与测试用例一一对应。
 - **协作习惯**：
   - 在动手写/改实现前，先读相关 `openspec/specs/` 与本次 `openspec/changes/<id>/` 中的文档，以 spec 和 design 为「要实现的真相」。
   - **先写测再实现**：开发新功能时，先根据 spec/design 写出或更新测试用例（红），再写实现代码直到测试通过（绿），必要时再重构；小修小补（如文案、样式）可灵活处理。

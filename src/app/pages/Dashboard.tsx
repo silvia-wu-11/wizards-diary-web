@@ -74,6 +74,8 @@ export function Dashboard() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
   const [isBookDropdownOpen, setIsBookDropdownOpen] = useState(false);
+  const [selectedFilterBook, setSelectedFilterBook] = useState<string | null>(null);
+  const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close book dropdown on outside click
@@ -172,6 +174,10 @@ export function Dashboard() {
     }
 
     if (selectedTag && !e.tags.includes(selectedTag)) {
+      return false;
+    }
+
+    if (selectedFilterBook && e.bookId !== selectedFilterBook) {
       return false;
     }
     
@@ -409,7 +415,7 @@ export function Dashboard() {
             <div className="flex items-center gap-4 w-full md:w-auto relative z-10">
               <div className="relative">
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setIsDatePickerOpen(!isDatePickerOpen); }}
+                  onClick={(e) => { e.stopPropagation(); setIsBookFilterDropdownOpen(false); setIsTagDropdownOpen(false); setIsDatePickerOpen(!isDatePickerOpen); }}
                   onMouseDown={(e) => e.stopPropagation()}
                   className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
                 >
@@ -444,9 +450,80 @@ export function Dashboard() {
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Book Filter */}
               <div className="relative">
                 <button 
-                  onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+                  onClick={() => { setIsDatePickerOpen(false); setIsTagDropdownOpen(false); setIsBookFilterDropdownOpen(!isBookFilterDropdownOpen); }}
+                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
+                >
+                  <BookOpen className="w-5 h-5 text-[#4A4540]" />
+                  <span className="font-['Cinzel'] font-bold text-[#4A4540]">
+                    {selectedFilterBook ? (books.find(b => b.id === selectedFilterBook)?.name ?? 'All Books') : 'All Books'}
+                  </span>
+                  {selectedFilterBook && (
+                    <X 
+                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFilterBook(null);
+                        setIsBookFilterDropdownOpen(false);
+                      }}
+                    />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {isBookFilterDropdownOpen && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute top-full mt-2 left-0 bg-[#EBE5DC] border border-[#8B5A5A]/30 rounded-lg shadow-xl p-3 z-[100] min-w-[200px] max-h-[300px] overflow-y-auto magic-scrollbar"
+                    >
+                      <div className="text-sm font-['Cinzel'] text-[#4A4540]/70 mb-2 px-2 border-b border-[#8B5A5A]/20 pb-1">
+                        Diary Books
+                      </div>
+                      {books.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {books.map(book => (
+                            <button
+                              key={book.id}
+                              onClick={() => {
+                                setSelectedFilterBook(book.id);
+                                setIsBookFilterDropdownOpen(false);
+                              }}
+                              className={cn(
+                                "text-left px-3 py-2 rounded-md transition-colors flex items-center justify-between gap-2",
+                                selectedFilterBook === book.id 
+                                  ? "bg-[#8B5A5A] text-[#EBE5DC]" 
+                                  : "hover:bg-white/50 text-[#4A4540]"
+                              )}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span
+                                  className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-black/20"
+                                  style={{ backgroundColor: book.color || '#5c2a2a' }}
+                                />
+                                <span className="font-['Cinzel'] text-base">{book.name}</span>
+                              </span>
+                              {selectedFilterBook === book.id && <Wand2 className="w-4 h-4 flex-shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-[#4A4540]/60 text-sm font-['Cinzel']">
+                          No books available
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="relative">
+                <button 
+                  onClick={() => { setIsDatePickerOpen(false); setIsBookFilterDropdownOpen(false); setIsTagDropdownOpen(!isTagDropdownOpen); }}
                   className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
                 >
                   <Filter className="w-5 h-5 text-[#4A4540]" />
@@ -553,7 +630,7 @@ export function Dashboard() {
                     {entry.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
                         {entry.tags.map(tag => (
-                          <span key={tag} className="text-sm bg-rusty-copper/10 text-rusty-copper px-2 py-0.5 rounded-full border border-rusty-copper/20">
+                          <span key={tag} className="text-sm bg-rusty-copper/10 text-rusty-copper px-2 py-0.5 rounded-full border border-rusty-copper/20 font-[Caveat]">
                             #{tag}
                           </span>
                         ))}
@@ -650,7 +727,7 @@ export function Dashboard() {
                             );
                           })()}
                           {entry.tags.map(tag => (
-                            <span key={tag} className="text-lg bg-rusty-copper/10 text-rusty-copper px-4 py-1 rounded-full border border-rusty-copper/20 shadow-sm">
+                            <span key={tag} className="text-lg bg-rusty-copper/10 text-rusty-copper px-4 py-1 rounded-full border border-rusty-copper/20 shadow-sm font-[Caveat]">
                               #{tag}
                             </span>
                           ))}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 // DiaryView — keyboard nav + image preview fix
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, CalendarDays, Edit3, Trash2, Share2, ChevronLeft, ChevronRight, Book, Wand2, Image as ImageIcon, X, Loader2, Flame } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Edit3, Search, Trash2, Share2, ChevronLeft, ChevronRight, Book, Wand2, Image as ImageIcon, X, Loader2, Flame } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
 import { useDiaryStore } from '../store';
 import { cn } from '../components/UI';
@@ -64,6 +64,8 @@ export function DiaryView() {
   
   const [editTitle, setEditTitle] = useState(entry?.title || "");
   const [editContent, setEditContent] = useState(entry?.content || "");
+  const [editTags, setEditTags] = useState<string[]>(entry?.tags || []);
+  const [tagInput, setTagInput] = useState("");
   const [images, setImages] = useState<DiaryImage[]>(
     entry?.images?.map(url => ({ id: Math.random().toString(36).substring(2, 9), url, loading: false })) || []
   );
@@ -97,10 +99,19 @@ export function DiaryView() {
     setIsEditing(id === 'new');
     setEditTitle(entry?.title || "");
     setEditContent(entry?.content || "");
+    setEditTags(entry?.tags || []);
+    setTagInput("");
     setImages(entry?.images?.map(url => ({ id: Math.random().toString(36).substring(2, 9), url, loading: false })) || []);
   }, [id, entry]);
 
   const handleSave = () => {
+    let finalTags = editTags;
+    if (tagInput.trim() && !editTags.includes(tagInput.trim())) {
+      finalTags = [...editTags, tagInput.trim()];
+      setEditTags(finalTags);
+      setTagInput("");
+    }
+
     if (isNewEntry) {
       addEntry({
         bookId: paramBookId!,
@@ -108,7 +119,7 @@ export function DiaryView() {
         content: editContent,
         date: new Date().toISOString(),
         images: images.filter(img => !img.loading).map(img => img.url),
-        tags: [],
+        tags: finalTags,
       });
       navigate('/');
     } else if (entry) {
@@ -116,6 +127,7 @@ export function DiaryView() {
         title: editTitle.trim() || 'Untitled Memory',
         content: editContent,
         images: images.filter(img => !img.loading).map(img => img.url),
+        tags: finalTags,
       });
       setIsEditing(false);
     }
@@ -438,27 +450,85 @@ export function DiaryView() {
                 </div>
 
                 {/* Right Page (Content) */}
-                <div className="flex-1 bg-parchment relative rounded-r-md p-8 md:p-14 overflow-y-auto magic-scrollbar shadow-[inset_15px_0_30px_rgba(0,0,0,0.15)] group/right">
+                <div className="flex-1 bg-parchment relative rounded-r-md p-8 md:p-14 overflow-y-auto magic-scrollbar shadow-[inset_15px_0_30px_rgba(0,0,0,0.15)] group/right flex flex-col">
                   <div className="absolute inset-0 pointer-events-none bg-gradient-to-l from-black/5 via-transparent to-black/10" />
                   
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.6 }}
-                    className="relative z-10"
+                    className="relative z-10 flex-1 flex flex-col"
                   >
                     {isEditing ? (
                       <textarea
                         value={editContent}
                         onChange={(e) => setEditContent(e.target.value)}
                         placeholder="Let your magic flow through the quill..."
-                        className="w-full h-full min-h-[400px] font-['Caveat'] text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide bg-transparent outline-none resize-none placeholder-[#2c2420]/30"
+                        className="w-full flex-1 min-h-[400px] font-['Caveat'] text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide bg-transparent outline-none resize-none placeholder-[#2c2420]/30"
                         autoFocus
                       />
                     ) : (
-                      <p className="font-['Caveat'] text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide">
+                      <p className="font-['Caveat'] flex-1 text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide pb-12">
                         {isNewEntry ? "Click the edit button below to write your first entry in this magical diary..." : entry?.content}
                       </p>
+                    )}
+
+                    {isEditing && (
+                      <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }}
+                        className="mt-auto pt-6 border-t border-vintage-burgundy/10"
+                      >
+                        <div className="flex flex-wrap gap-2 mb-4">
+                          <AnimatePresence>
+                            {editTags.map(tag => (
+                              <motion.span
+                                key={tag}
+                                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8, y: -10 }}
+                                whileHover={{ 
+                                  scale: 1.05,
+                                  boxShadow: "0 0 12px rgba(184,93,25,0.4), inset 0 0 8px rgba(184,93,25,0.2)",
+                                  textShadow: "0 0 8px rgba(184,93,25,0.5)"
+                                }}
+                                className="flex items-center gap-1 bg-gradient-to-br from-rusty-copper/10 to-rusty-copper/5 text-rusty-copper px-3 py-1 rounded-sm font-['Cinzel'] text-sm font-bold border border-rusty-copper/30 transition-colors cursor-default"
+                              >
+                                #{tag}
+                                <button
+                                  onClick={() => setEditTags(tags => tags.filter(t => t !== tag))}
+                                  className="hover:text-[#2c2420] hover:bg-rusty-copper/20 rounded-full p-0.5 transition-colors outline-none"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </motion.span>
+                            ))}
+                          </AnimatePresence>
+                        </div>
+                        <div className="relative group/tag-input">
+                          <input
+                            type="text"
+                            value={tagInput}
+                            onChange={(e) => setTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && tagInput.trim()) {
+                                e.preventDefault();
+                                const newTag = tagInput.trim();
+                                if (!editTags.includes(newTag)) {
+                                  setEditTags([...editTags, newTag]);
+                                }
+                                setTagInput("");
+                              }
+                            }}
+                            placeholder="Summon new tags... (Press Enter)"
+                            className="w-full bg-transparent border-b-2 border-vintage-burgundy/20 pb-2 font-['Cinzel'] text-vintage-burgundy placeholder-vintage-burgundy/40 outline-none transition-all z-10 relative focus:border-transparent"
+                          />
+                          {/* Magical Glowing Line */}
+                          <div className="absolute bottom-0 left-0 h-[2px] w-full bg-transparent group-focus-within/tag-input:bg-rusty-copper transition-colors duration-300" />
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] w-0 bg-rusty-copper group-focus-within/tag-input:w-full group-focus-within/tag-input:shadow-[0_0_15px_2px_rgba(184,93,25,0.6)] transition-all duration-500 opacity-0 group-focus-within/tag-input:opacity-100" />
+                          <Wand2 className="absolute right-2 top-0 w-4 h-4 text-vintage-burgundy/30 group-focus-within/tag-input:text-rusty-copper transition-colors duration-500 group-focus-within/tag-input:drop-shadow-[0_0_5px_rgba(184,93,25,0.8)] opacity-0 group-focus-within/tag-input:opacity-100 -rotate-12" />
+                        </div>
+                      </motion.div>
                     )}
                   </motion.div>
                   
@@ -513,6 +583,10 @@ export function DiaryView() {
 
       {/* Bottom Actions */}
       <footer className="p-6 bg-gradient-to-t from-[#1a1412] via-[#1a1412]/80 to-transparent z-20 sticky bottom-0 flex justify-center gap-4 sm:gap-6 mt-auto">
+        <ActionButton 
+          icon={<Search className="w-5 h-5" />} 
+          label="Search" 
+        />
         {isEditing && isOpen && (
           <ActionButton 
             icon={<Edit3 className="w-5 h-5" />} 

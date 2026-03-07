@@ -291,5 +291,7 @@ export const useDiaryStore = create<DiaryState>((setState, getState) => ({
   },
 }));
 
-// 应用启动时立即从持久层加载数据
-useDiaryStore.getState().loadData();
+// 应用启动时立即从持久层加载数据（仅浏览器环境）
+if (typeof window !== 'undefined') {
+  useDiaryStore.getState().loadData();
+}

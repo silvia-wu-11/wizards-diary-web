@@ -1,3 +1,5 @@
+'use client';
+
 import { motion } from 'motion/react';
 
 export default function Layout({ children }: { children: React.ReactNode }) {

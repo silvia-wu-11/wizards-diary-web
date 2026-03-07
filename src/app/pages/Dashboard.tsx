@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ImagePreviewGallery, DiaryImage } from '../components/ImagePreviewGallery';
-import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, ChevronLeft, ChevronRight, Loader2, LogIn } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDiaryStore } from '../store';
 import { ParchmentBox, LeatherBox, MagicButton } from '../components/UI';
 import { cn } from '../components/UI';
 import { MagicCalendar } from '../components/MagicCalendar';
+import { AuthModal } from '../components/auth/AuthModal';
 
 const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -47,6 +49,7 @@ const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
 
 export function Dashboard() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { entries, books, saveEntry, addBook } = useDiaryStore();
 
   const [title, setTitle] = useState('');
@@ -78,6 +81,7 @@ export function Dashboard() {
   const [isBookDropdownOpen, setIsBookDropdownOpen] = useState(false);
   const [selectedFilterBook, setSelectedFilterBook] = useState<string | null>(null);
   const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close book dropdown on outside click
@@ -188,6 +192,17 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-castle-stone via-[#2c2438] to-[#1a1420] text-parchment-white p-6 pb-20 font-sans relative overflow-hidden">
+      {/* 右上角登录按钮 */}
+      <button
+        type="button"
+        onClick={() => setIsAuthModalOpen(true)}
+        className="fixed top-6 right-6 z-50 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
+        aria-label={session ? '账户' : '登录或创建账号'}
+      >
+        <LogIn className="size-4" />
+        {session ? '账户' : '登录'}
+      </button>
+      <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
       <div className="absolute inset-0 pointer-events-none opacity-30" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&auto=format&fit=crop&q=80')", backgroundSize: "cover", mixBlendMode: 'overlay', filter: 'hue-rotate(20deg) saturate(150%)' }} />
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6b4c7a] rounded-full blur-[150px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#8b6b45] rounded-full blur-[150px] opacity-20 pointer-events-none" />

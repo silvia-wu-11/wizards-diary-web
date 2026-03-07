@@ -1,0 +1,21 @@
+// Prisma schema for 魔法日记本
+// 运行迁移: pnpm prisma migrate dev
+// 生成 Client: pnpm prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

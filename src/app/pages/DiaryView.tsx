@@ -1,6 +1,7 @@
+'use client';
+
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router';
-// DiaryView — keyboard nav + image preview fix
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, CalendarDays, Edit3, Search, Trash2, Share2, ChevronLeft, ChevronRight, Book, Wand2, Image as ImageIcon, X, Loader2, Flame } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
@@ -43,10 +44,8 @@ const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   });
 };
 
-export function DiaryView() {
-  const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+export function DiaryView({ id, bookId: paramBookId }: { id: string; bookId?: string }) {
+  const router = useRouter();
   const { entries, deleteEntry, deleteBook, addEntry, updateEntry, books } = useDiaryStore();
   
   const [isOpen, setIsOpen] = useState(false);
@@ -59,8 +58,7 @@ export function DiaryView() {
   
   const calendarRef = useRef<HTMLDivElement>(null);
 
-  const paramBookId = searchParams.get('bookId');
-  const entry = isNewEntry ? null : entries.find(e => e.id === id);
+  const entry = isNewEntry ? null : entries.find((e) => e.id === id);
   
   const [editTitle, setEditTitle] = useState(entry?.title || "");
   const [editContent, setEditContent] = useState(entry?.content || "");
@@ -121,7 +119,7 @@ export function DiaryView() {
         images: images.filter(img => !img.loading).map(img => img.url),
         tags: finalTags,
       });
-      navigate('/');
+      router.push('/');
     } else if (entry) {
       updateEntry(entry.id, {
         title: editTitle.trim() || 'Untitled Memory',
@@ -141,7 +139,7 @@ export function DiaryView() {
     if (entry) {
       deleteEntry(entry.id);
     }
-    navigate('/');
+    router.push('/');
   };
 
   // Determine the current book
@@ -160,9 +158,9 @@ export function DiaryView() {
   useEffect(() => {
     // If not creating a new entry and no entry found, or if new but no bookId provided
     if ((!isNewEntry && !entry) || (isNewEntry && !paramBookId)) {
-      navigate('/');
+      router.push('/');
     }
-  }, [entry, isNewEntry, paramBookId, navigate]);
+  }, [entry, isNewEntry, paramBookId, router]);
 
   // Handle clicking outside to close calendar
   useEffect(() => {
@@ -187,14 +185,14 @@ export function DiaryView() {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.key === 'ArrowLeft' && prevEntry) {
-        navigate(`/diary/${prevEntry.id}`);
+        router.push(`/diary/${prevEntry.id}`);
       } else if (e.key === 'ArrowRight' && nextEntry) {
-        navigate(`/diary/${nextEntry.id}`);
+        router.push(`/diary/${nextEntry.id}`);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isEditing, prevEntry, nextEntry, navigate]);
+  }, [isOpen, isEditing, prevEntry, nextEntry, router]);
 
   if (!isNewEntry && !entry) return null;
 
@@ -207,7 +205,7 @@ export function DiaryView() {
       {/* Top Navigation */}
       <header className="flex justify-between items-center z-50 sticky top-0 bg-[#2c2420]/80 backdrop-blur-md border-b border-faded-gold/20 px-[24px] py-[16px] mx-[0px] mt-[0px] mb-[20px]">
         <button 
-          onClick={() => navigate('/')}
+          onClick={() => router.push('/')}
           className="flex items-center gap-2 text-faded-gold hover:text-white transition-colors font-['Cinzel'] font-bold text-lg group"
         >
           <div className="p-1 rounded-full border border-faded-gold/30 group-hover:bg-faded-gold/20 transition-all">
@@ -240,7 +238,7 @@ export function DiaryView() {
                   onSelectDate={(dateStr, entryId) => {
                     if (entryId) {
                       setIsCalendarOpen(false);
-                      navigate(`/diary/${entryId}`);
+                      router.push(`/diary/${entryId}`);
                     }
                   }}
                   onClose={() => setIsCalendarOpen(false)}
@@ -553,7 +551,7 @@ export function DiaryView() {
                     title="Previous Entry"
                   >
                     <div
-                      onClick={(e) => { e.stopPropagation(); navigate(`/diary/${prevEntry.id}`); }}
+                      onClick={(e) => { e.stopPropagation(); router.push(`/diary/${prevEntry.id}`); }}
                       className="w-12 h-12 bg-[#2c2420]/80 rounded-r-full flex items-center justify-center text-faded-gold shadow-[2px_0_10px_rgba(0,0,0,0.3)] opacity-30 group-hover:opacity-100 transition-all -translate-x-full group-hover:translate-x-0 border-y border-r border-faded-gold/30 cursor-pointer pointer-events-auto"
                     >
                       <ChevronLeft className="w-7 h-7 mr-1" />
@@ -567,7 +565,7 @@ export function DiaryView() {
                     title="Next Entry"
                   >
                     <div
-                      onClick={(e) => { e.stopPropagation(); navigate(`/diary/${nextEntry.id}`); }}
+                      onClick={(e) => { e.stopPropagation(); router.push(`/diary/${nextEntry.id}`); }}
                       className="w-12 h-12 bg-[#2c2420]/80 rounded-l-full flex items-center justify-center text-faded-gold shadow-[-2px_0_10px_rgba(0,0,0,0.3)] opacity-30 group-hover:opacity-100 transition-all translate-x-full group-hover:translate-x-0 border-y border-l border-faded-gold/30 cursor-pointer pointer-events-auto"
                     >
                       <ChevronRight className="w-7 h-7 ml-1" />

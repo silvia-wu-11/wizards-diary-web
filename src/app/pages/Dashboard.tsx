@@ -1,5 +1,7 @@
+'use client';
+
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useRouter } from 'next/navigation';
 import { ImagePreviewGallery, DiaryImage } from '../components/ImagePreviewGallery';
 import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -44,7 +46,7 @@ const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
 };
 
 export function Dashboard() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { entries, books, saveEntry, addBook } = useDiaryStore();
 
   const [title, setTitle] = useState('');
@@ -380,7 +382,7 @@ export function Dashboard() {
             {books.map((book, idx) => (
               <motion.div 
                 key={book.id}
-                onClick={() => navigate(`/book/${book.id}`)}
+                onClick={() => router.push(`/book/${book.id}`)}
                 whileHover={{ y: -10, rotate: -2, scale: 1.05 }}
                 className={cn(
                   "relative w-32 h-44 rounded-r-lg shadow-2xl cursor-pointer flex-shrink-0 flex items-center justify-center text-center p-2 border-l-8 border-[#1a1412] transition-colors group",

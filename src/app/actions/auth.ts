@@ -1,6 +1,5 @@
 'use server';
 
-import { signIn } from '@/auth';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
 import { registerSchema } from '@/lib/auth/validators';
@@ -9,11 +8,8 @@ export type RegisterResult =
   | { success: true }
   | { success: false; error: string };
 
-/** 注册并自动登录 */
-export async function register(
-  formData: FormData,
-  redirectTo: string = '/'
-): Promise<RegisterResult> {
+/** 注册（由调用方在客户端完成自动登录与跳转） */
+export async function register(formData: FormData): Promise<RegisterResult> {
   try {
     const raw = {
       email: formData.get('email') as string,
@@ -44,19 +40,8 @@ export async function register(
       data: { email, passwordHash, name: name || null },
     });
 
-    // 使用 redirect: false 避免 Server Action 中 signIn 抛出重定向导致 500
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      // 用户已创建但登录失败，返回成功让用户手动登录
-      console.warn('[register] signIn after create failed:', result.error);
-      return { success: true };
-    }
-
+    // 不在此处 signIn：Server Action 中设置的 cookie 可能无法正确传递到客户端
+    // 由调用方在客户端调用 signIn 完成自动登录并跳转
     return { success: true };
   } catch (err) {
     console.error('[register]', err);

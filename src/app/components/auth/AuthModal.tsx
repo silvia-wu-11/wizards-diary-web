@@ -120,15 +120,24 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
       formData.set('confirmPassword', confirmPassword);
       if (name) formData.set('name', name);
 
-      const result = await register(formData, '/');
+      const result = await register(formData);
       if (!result.success) {
         if (result.error.includes('邮箱')) setEmailError(result.error);
         else if (result.error.includes('密码')) setConfirmPasswordError(result.error);
         else setFormError(result.error);
         return;
       }
-      handleOpenChange(false);
-      router.refresh();
+      // 注册成功后自动登录并跳转到首页
+      const signInResult = await signIn('credentials', {
+        email: parsed.data.email,
+        password: parsed.data.password,
+        callbackUrl: '/',
+        redirect: true,
+      });
+      if (signInResult?.error) {
+        setFormError('账号已创建，请手动登录');
+      }
+      // redirect: true 成功时会直接跳转，不会执行到此
     } catch {
       setFormError('注册失败，请重试');
     } finally {

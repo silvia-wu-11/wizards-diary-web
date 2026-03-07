@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Label } from '@/app/components/ui/label';
@@ -12,7 +13,6 @@ import { z } from 'zod';
 import { registerSchema } from '@/lib/auth/validators';
 
 export default function RegisterPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('from') || '/';
 
@@ -58,7 +58,7 @@ export default function RegisterPage() {
       formData.set('confirmPassword', confirmPassword);
       if (name) formData.set('name', name);
 
-      const result = await register(formData, redirectTo);
+      const result = await register(formData);
 
       if (!result.success) {
         if (result.error.includes('邮箱')) setEmailError(result.error);
@@ -66,8 +66,16 @@ export default function RegisterPage() {
         else setFormError(result.error);
         return;
       }
-      router.push(redirectTo);
-      router.refresh();
+      // 注册成功后自动登录并跳转到首页
+      const signInResult = await signIn('credentials', {
+        email: parsed.data.email,
+        password: parsed.data.password,
+        callbackUrl: redirectTo,
+        redirect: true,
+      });
+      if (signInResult?.error) {
+        setFormError('账号已创建，请手动登录');
+      }
     } catch {
       setFormError('注册失败，请重试');
     } finally {

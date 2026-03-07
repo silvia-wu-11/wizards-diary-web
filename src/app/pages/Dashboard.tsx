@@ -192,16 +192,6 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-castle-stone via-[#2c2438] to-[#1a1420] text-parchment-white p-6 pb-20 font-sans relative overflow-hidden">
-      {/* 右上角登录按钮 */}
-      <button
-        type="button"
-        onClick={() => setIsAuthModalOpen(true)}
-        className="fixed top-6 right-6 z-50 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
-        aria-label={session ? '账户' : '登录或创建账号'}
-      >
-        <LogIn className="size-4" />
-        {session ? '账户' : '登录'}
-      </button>
       <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
       <div className="absolute inset-0 pointer-events-none opacity-30" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&auto=format&fit=crop&q=80')", backgroundSize: "cover", mixBlendMode: 'overlay', filter: 'hue-rotate(20deg) saturate(150%)' }} />
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6b4c7a] rounded-full blur-[150px] opacity-20 pointer-events-none" />
@@ -210,7 +200,16 @@ export function Dashboard() {
       <div className="max-w-6xl mx-auto space-y-12 relative z-10">
         
         {/* Header */}
-        <header className="text-center py-8 m-[0px]">
+        <header className="relative text-center py-8 m-[0px]">
+          <button
+            type="button"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="absolute top-0 right-0 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
+            aria-label={session ? '账户' : '登录或创建账号'}
+          >
+            <LogIn className="size-4" />
+            {session ? '账户' : '登录'}
+          </button>
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
             <h1 className="text-5xl md:text-6xl text-faded-gold flex items-center justify-center gap-4 mb-2 drop-shadow-[0_0_10px_rgba(201,184,150,0.5)]">
               <Star className="w-8 h-8 text-faded-gold animate-pulse" />

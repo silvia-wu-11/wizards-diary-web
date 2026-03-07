@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, CalendarDays, Edit3, Search, Trash2, Share2, ChevronLeft, ChevronRight, Book, Wand2, Image as ImageIcon, X, Loader2, Flame } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
@@ -112,6 +113,7 @@ export function DiaryView({ id, bookId: paramBookId }: { id: string; bookId?: st
 
     if (isNewEntry) {
       addEntry({
+        id: uuidv4(),
         bookId: paramBookId!,
         title: editTitle.trim() || 'Untitled Memory',
         content: editContent,

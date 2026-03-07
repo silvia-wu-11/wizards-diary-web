@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { useDiaryStore, DiaryEntry } from '../store';
-import { Link } from 'react-router';
+import Link from 'next/link';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 import { Sparkles, Calendar, Tag as TagIcon, ArrowRight } from 'lucide-react';
@@ -30,7 +30,7 @@ export function DiaryFeed({ entries }: DiaryFeedProps) {
           whileHover={{ y: -5, scale: 1.02 }}
           className="relative group h-full"
         >
-          <Link to={`/diary/${entry.id}`} className="block h-full">
+          <Link href={`/diary/${entry.id}`} className="block h-full">
             <div className={clsx(
               "relative bg-[#EBE5DC] p-6 rounded-lg shadow-lg overflow-hidden h-full flex flex-col justify-between border border-[#C9B896]/30 transition-all duration-300",
               "group-hover:shadow-[0_0_20px_rgba(201,184,150,0.3)] group-hover:border-[#C9B896]",

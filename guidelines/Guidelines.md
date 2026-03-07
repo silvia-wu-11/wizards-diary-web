@@ -1,3 +1,4 @@
+<!-- 本文件是给Figma make初始设计前端界面使用的 -->
 # Project Guidelines: Magical Diary Web App
 
 ## 🎯 Project Overview

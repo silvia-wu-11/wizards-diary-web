@@ -12,6 +12,7 @@ import { ParchmentBox, LeatherBox, MagicButton } from '../components/UI';
 import { cn } from '../components/UI';
 import { MagicCalendar } from '../components/MagicCalendar';
 import { AuthModal } from '../components/auth/AuthModal';
+import { toast } from 'sonner';
 
 const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -51,11 +52,12 @@ export function Dashboard() {
   const router = useRouter();
   const { data: session } = useSession();
   const { entries, books, saveEntry, addBook } = useDiaryStore();
+  const [isSaving, setIsSaving] = useState(false);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagsStr, setTagsStr] = useState('');
-  const [selectedBook, setSelectedBook] = useState(books[0]?.id || 'book-1');
+  const [selectedBook, setSelectedBook] = useState(books[0]?.id ?? '');
   const [searchQuery, setSearchQuery] = useState('');
   const [images, setImages] = useState<DiaryImage[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
@@ -82,7 +84,15 @@ export function Dashboard() {
   const [selectedFilterBook, setSelectedFilterBook] = useState<string | null>(null);
   const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isCreatingBook, setIsCreatingBook] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 默认选中第一个日记本
+  useEffect(() => {
+    if (books.length > 0 && (!selectedBook || !books.some(b => b.id === selectedBook))) {
+      setSelectedBook(books[0].id);
+    }
+  }, [books, selectedBook]);
 
   // Close book dropdown on outside click
   useEffect(() => {
@@ -126,50 +136,72 @@ export function Dashboard() {
     e.target.value = '';
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || !title.trim()) return;
+    if (!content.trim()) return;
     if (images.some(img => img.loading)) {
-      alert("Please wait for images to finish loading.");
+      toast.error('请等待图片加载完成');
       return;
     }
 
-    saveEntry({
-      title,
-      content,
-      bookId: selectedBook,
-      date: new Date(entryDate).toISOString(),
-      tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
-      images: images.length > 0 ? images.map(img => img.url) : undefined
-    });
-    
-    setTitle('');
-    setContent('');
-    setTagsStr('');
-    setImages([]);
+    setIsSaving(true);
+    try {
+      await saveEntry({
+        title: title.trim() || null,
+        content,
+        bookId: selectedBook || undefined,
+        date: new Date(entryDate).toISOString(),
+        tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
+        images: images.length > 0 ? images.filter(img => !img.loading && img.url).map(img => img.url) : undefined
+      });
+      toast.success('日记已保存');
+      setTitle('');
+      setContent('');
+      setTagsStr('');
+      setImages([]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '保存失败');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleCreateBook = (e: React.FormEvent) => {
+  const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBookName.trim()) return;
-    
-    const newBook = {
-      id: `book-${Date.now()}`,
-      name: newBookName,
-      color: newBookColor,
-      type: newBookType
-    };
-    
-    // Instead of setState, use the new addBook function
-    addBook(newBook);
-    
-    setSelectedBook(newBook.id);
-    setNewBookName('');
-    setIsNewBookModalOpen(false);
+
+    if (!session?.user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setIsCreatingBook(true);
+    try {
+      const created = await addBook({
+        name: newBookName.trim(),
+        color: newBookColor,
+        type: newBookType
+      });
+      toast.success('日记本已创建');
+      setSelectedBook(created.id);
+      setNewBookName('');
+      setNewBookColor('#5c2a2a');
+      setNewBookType('potion');
+      setIsNewBookModalOpen(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '创建失败';
+      if (msg === 'Unauthorized' || msg.includes('未登录')) {
+        setIsAuthModalOpen(true);
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setIsCreatingBook(false);
+    }
   };
 
   const filteredEntries = entries.filter(e => {
-    const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = (e.title ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           e.content.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     
@@ -208,7 +240,7 @@ export function Dashboard() {
             aria-label={session ? '账户' : '登录或创建账号'}
           >
             <LogIn className="size-4" />
-            {session ? '账户' : '登录'}
+            {session ? 'account' : 'login'}
           </button>
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
             <h1 className="text-5xl md:text-6xl text-faded-gold flex items-center justify-center gap-4 mb-2 drop-shadow-[0_0_10px_rgba(201,184,150,0.5)]">
@@ -379,7 +411,16 @@ export function Dashboard() {
                         <ImageIcon className="w-7 h-7" />
                       </label>
                     )}
-                    <MagicButton type="submit">Seal Entry</MagicButton>
+                    <MagicButton type="submit" disabled={isSaving}>
+                      {isSaving ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          保存中...
+                        </span>
+                      ) : (
+                        'Seal Entry'
+                      )}
+                    </MagicButton>
                   </div>
                 </div>
               </form>
@@ -633,7 +674,7 @@ export function Dashboard() {
                     className="flex flex-col gap-3"
                   >
                     <div className="flex justify-between items-start">
-                      <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">{entry.title}</h3>
+                      <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">{entry.title ?? 'Untitled'}</h3>
                       <span className="text-sm font-['Cinzel'] text-rusty-copper/70 flex-shrink-0 ml-2">
                         {format(new Date(entry.date), 'MMM dd')}
                       </span>
@@ -705,7 +746,7 @@ export function Dashboard() {
                     <div className="flex flex-col gap-6 pt-2 min-h-full">
                       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-rusty-copper/30 pb-6">
                         <h2 className="text-4xl md:text-5xl font-['Cinzel'] font-bold text-vintage-burgundy leading-tight drop-shadow-sm">
-                          {entry.title}
+                          {entry.title ?? 'Untitled'}
                         </h2>
                         <div className="flex items-center gap-2 text-rusty-copper font-['Cinzel'] text-xl whitespace-nowrap">
                           <Calendar className="w-6 h-6" />
@@ -717,10 +758,10 @@ export function Dashboard() {
                         {entry.content}
                       </div>
 
-                      {entry.images && entry.images.length > 0 && (
+                      {(entry.imageUrls?.length ?? entry.images?.length ?? 0) > 0 && (
                         <div className="mt-2">
                           <ImagePreviewGallery
-                            images={entry.images.map(url => ({ id: url, url, loading: false }))}
+                            images={(entry.imageUrls ?? entry.images ?? []).map(url => ({ id: url, url, loading: false }))}
                             setImages={() => {}}
                             isEditing={false}
                             previewIndex={viewingPreviewIndex}
@@ -771,12 +812,14 @@ export function Dashboard() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && setIsNewBookModalOpen(false)}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               className="bg-[#2c2420] border-2 border-[#8B5A5A] rounded-xl shadow-2xl shadow-[#8B5A5A]/20 p-8 max-w-md w-full relative"
+              onClick={(e) => e.stopPropagation()}
             >
               <button 
                 onClick={() => setIsNewBookModalOpen(false)}
@@ -858,10 +901,20 @@ export function Dashboard() {
                 <div className="pt-4 border-t border-[#8B5A5A]/30">
                   <button 
                     type="submit"
-                    className="w-full bg-gradient-to-r from-[#8B5A5A] to-[#5c2a2a] hover:from-[#9c6a6a] hover:to-[#6c3a3a] text-[#EBE5DC] font-['Cinzel'] font-bold text-lg py-3 rounded-lg border border-[#C9B896]/50 shadow-[0_0_15px_rgba(139,90,90,0.4)] transition-all hover:shadow-[0_0_20px_rgba(201,184,150,0.5)] flex items-center justify-center gap-2"
+                    disabled={isCreatingBook}
+                    className="w-full bg-gradient-to-r from-[#8B5A5A] to-[#5c2a2a] hover:from-[#9c6a6a] hover:to-[#6c3a3a] disabled:from-[#5c4a4a] disabled:to-[#4c3a3a] disabled:cursor-not-allowed text-[#EBE5DC] font-['Cinzel'] font-bold text-lg py-3 rounded-lg border border-[#C9B896]/50 shadow-[0_0_15px_rgba(139,90,90,0.4)] transition-all hover:shadow-[0_0_20px_rgba(201,184,150,0.5)] flex items-center justify-center gap-2"
                   >
-                    <BookOpen className="w-5 h-5" />
-                    Seal Binding
+                    {isCreatingBook ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        正在装订...
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen className="w-5 h-5" />
+                        Seal Binding
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

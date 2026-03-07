@@ -49,7 +49,7 @@ export function DiaryFeed({ entries }: DiaryFeedProps) {
 
                 {/* Title */}
                 <h3 className="font-magic text-2xl text-[#383431] mb-3 leading-tight group-hover:text-[#8B5A5A] transition-colors">
-                  {entry.title}
+                  {entry.title ?? 'Untitled'}
                 </h3>
 
                 {/* Preview Text */}

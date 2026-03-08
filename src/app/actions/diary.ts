@@ -246,3 +246,76 @@ export async function deleteBook(bookId: string): Promise<void> {
 
   await prisma.diaryBook.delete({ where: { id: bookId } });
 }
+
+// ─────────────────────────────────────────────
+// 分页与筛选
+// ─────────────────────────────────────────────
+
+export interface GetEntriesPaginatedParams {
+  dateFrom?: string;
+  dateTo?: string;
+  tag?: string;
+  bookId?: string;
+  keyword?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+/** 分页获取日记，支持日期范围、tag、日记本、关键词筛选 */
+export async function getEntriesPaginated(params: GetEntriesPaginatedParams): Promise<{
+  entries: DiaryEntryDto[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}> {
+  const userId = await requireAuth();
+  const limit = params.limit ?? 30;
+
+  const dateCond: { gte?: Date; lte?: Date } = {};
+  if (params.dateFrom) dateCond.gte = new Date(params.dateFrom + 'T00:00:00.000Z');
+  if (params.dateTo) dateCond.lte = new Date(params.dateTo + 'T23:59:59.999Z');
+
+  const where = {
+    book: { userId },
+    ...(Object.keys(dateCond).length > 0 && { date: dateCond }),
+    ...(params.bookId && { bookId: params.bookId }),
+    ...(params.tag && { tags: { has: params.tag } }),
+    ...(params.keyword?.trim() && {
+      OR: [
+        { title: { contains: params.keyword.trim(), mode: 'insensitive' as const } },
+        { content: { contains: params.keyword.trim(), mode: 'insensitive' as const } },
+      ],
+    }),
+  };
+
+  const take = limit + 1;
+  const items = await prisma.diaryEntry.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    cursor: params.cursor ? { id: params.cursor } : undefined,
+    skip: params.cursor ? 1 : 0,
+    take,
+  });
+
+  const hasMore = items.length > limit;
+  const entries = hasMore ? items.slice(0, limit) : items;
+  const nextCursor = hasMore ? entries[entries.length - 1]!.id : null;
+
+  return {
+    entries: entries.map(entryFromPrisma),
+    nextCursor,
+    hasMore,
+  };
+}
+
+/** 获取当前用户所有日记的 tag 列表（用于筛选下拉） */
+export async function getTags(): Promise<string[]> {
+  const userId = await requireAuth();
+
+  const entries = await prisma.diaryEntry.findMany({
+    where: { book: { userId } },
+    select: { tags: true },
+  });
+
+  const tags = Array.from(new Set(entries.flatMap((e: { tags: string[] }) => e.tags))).sort((a: string, b: string) => a.localeCompare(b));
+  return tags;
+}

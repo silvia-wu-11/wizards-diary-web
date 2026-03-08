@@ -11,8 +11,10 @@ import { useDiaryStore } from '../store';
 import { ParchmentBox, LeatherBox, MagicButton } from '../components/UI';
 import { cn } from '../components/UI';
 import { MagicCalendar } from '../components/MagicCalendar';
+import { MagicCalendarRange } from '../components/MagicCalendarRange';
 import { AuthModal } from '../components/auth/AuthModal';
 import { toast } from 'sonner';
+import { getEntriesPaginated, getTags } from '../actions/diary';
 
 const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -67,7 +69,7 @@ export function Dashboard() {
   const [newBookColor, setNewBookColor] = useState('#5c2a2a');
   const [newBookType, setNewBookType] = useState('potion');
   const [viewingEntryId, setViewingEntryId] = useState<string | null>(null);
-  const [selectedFilterDate, setSelectedFilterDate] = useState<string | null>(null);
+  const [selectedFilterDateRange, setSelectedFilterDateRange] = useState<{ from: string; to: string } | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isEntryDatePickerOpen, setIsEntryDatePickerOpen] = useState(false);
   
@@ -86,6 +88,22 @@ export function Dashboard() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCreatingBook, setIsCreatingBook] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 分页列表状态
+  const [listEntries, setListEntries] = useState<typeof entries>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false);
+
+  // 关键词防抖 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   // 默认选中第一个日记本
   useEffect(() => {
@@ -107,14 +125,93 @@ export function Dashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isBookDropdownOpen]);
 
-  // Extract unique dates that have entries
-  const availableDates = Array.from(new Set(entries.map(e => {
-    const d = new Date(e.date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }))).sort((a, b) => b.localeCompare(a));
+  // 加载 tags 用于筛选下拉
+  useEffect(() => {
+    if (session?.user) {
+      getTags().then(setAvailableTags).catch(() => {});
+    }
+  }, [session?.user]);
 
-  // Extract unique tags that have entries
-  const availableTags = Array.from(new Set(entries.flatMap(e => e.tags))).sort((a, b) => a.localeCompare(b));
+  // 加载分页日记：筛选条件变化时重置并加载第一页
+  useEffect(() => {
+    if (!session?.user) return;
+    setListEntries([]);
+    setNextCursor(null);
+    setHasMore(true);
+    setIsLoadingEntries(true);
+    getEntriesPaginated({
+      dateFrom: selectedFilterDateRange?.from,
+      dateTo: selectedFilterDateRange?.to,
+      tag: selectedTag ?? undefined,
+      bookId: selectedFilterBook ?? undefined,
+      keyword: debouncedSearchQuery.trim() || undefined,
+      limit: 30,
+    })
+      .then((res) => {
+        setListEntries(res.entries);
+        setNextCursor(res.nextCursor);
+        setHasMore(res.hasMore);
+      })
+      .catch(() => {
+        setListEntries([]);
+        setNextCursor(null);
+        setHasMore(false);
+      })
+      .finally(() => setIsLoadingEntries(false));
+  }, [
+    session?.user,
+    selectedFilterDateRange?.from,
+    selectedFilterDateRange?.to,
+    selectedTag,
+    selectedFilterBook,
+    debouncedSearchQuery,
+  ]);
+
+  // 无限滚动：距离底部 30vh 时加载下一页
+  useEffect(() => {
+    if (!session?.user || !hasMore || isLoadingEntries || !nextCursor) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting || isLoadingMoreRef.current) return;
+        isLoadingMoreRef.current = true;
+        setIsLoadingEntries(true);
+        getEntriesPaginated({
+          dateFrom: selectedFilterDateRange?.from,
+          dateTo: selectedFilterDateRange?.to,
+          tag: selectedTag ?? undefined,
+          bookId: selectedFilterBook ?? undefined,
+          keyword: debouncedSearchQuery.trim() || undefined,
+          cursor: nextCursor,
+          limit: 30,
+        })
+          .then((res) => {
+            setListEntries((prev) => [...prev, ...res.entries]);
+            setNextCursor(res.nextCursor);
+            setHasMore(res.hasMore);
+          })
+          .catch(() => setHasMore(false))
+          .finally(() => {
+            isLoadingMoreRef.current = false;
+            setIsLoadingEntries(false);
+          });
+      },
+      { rootMargin: '0px 0px 30vh 0px', threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [
+    session?.user,
+    hasMore,
+    isLoadingEntries,
+    nextCursor,
+    selectedFilterDateRange?.from,
+    selectedFilterDateRange?.to,
+    selectedTag,
+    selectedFilterBook,
+    debouncedSearchQuery,
+  ]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -199,28 +296,6 @@ export function Dashboard() {
       setIsCreatingBook(false);
     }
   };
-
-  const filteredEntries = entries.filter(e => {
-    const matchesSearch = (e.title ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          e.content.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
-    
-    if (selectedFilterDate) {
-      const d = new Date(e.date);
-      const entryDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      if (entryDateStr !== selectedFilterDate) return false;
-    }
-
-    if (selectedTag && !e.tags.includes(selectedTag)) {
-      return false;
-    }
-
-    if (selectedFilterBook && e.bookId !== selectedFilterBook) {
-      return false;
-    }
-    
-    return true;
-  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-castle-stone via-[#2c2438] to-[#1a1420] text-parchment-white p-6 pb-20 font-sans relative overflow-hidden">
@@ -478,14 +553,16 @@ export function Dashboard() {
                 >
                   <Calendar className="w-5 h-5 text-[#4A4540]" />
                   <span className="font-['Cinzel'] font-bold text-[#4A4540]">
-                    {selectedFilterDate ? format(new Date(selectedFilterDate), 'MMM dd, yyyy') : 'All Dates'}
+                    {selectedFilterDateRange
+                      ? `${format(new Date(selectedFilterDateRange.from), 'MMM dd')} - ${format(new Date(selectedFilterDateRange.to), 'MMM dd, yyyy')}`
+                      : 'All Dates'}
                   </span>
-                  {selectedFilterDate && (
+                  {selectedFilterDateRange && (
                     <X 
                       className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedFilterDate(null);
+                        setSelectedFilterDateRange(null);
                         setIsDatePickerOpen(false);
                       }}
                     />
@@ -494,15 +571,15 @@ export function Dashboard() {
                 
                 <AnimatePresence>
                   {isDatePickerOpen && (
-                    <MagicCalendar 
-                      currentDate={selectedFilterDate || undefined}
-                      entries={entries}
-                      onSelectDate={(dateStr) => {
-                        setSelectedFilterDate(dateStr);
+                    <MagicCalendarRange 
+                      range={selectedFilterDateRange ?? undefined}
+                      onSelectRange={(from, to) => {
+                        setSelectedFilterDateRange({ from, to });
                         setIsDatePickerOpen(false);
                       }}
+                      onClear={() => setSelectedFilterDateRange(null)}
                       onClose={() => setIsDatePickerOpen(false)}
-                      title="Dates with Magic Records"
+                      title="Select date range"
                     />
                   )}
                 </AnimatePresence>
@@ -656,9 +733,14 @@ export function Dashboard() {
         </section>
 
         {/* Section 4: Feed */}
-        <section className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+        <section className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 mb-30">
+          {isLoadingEntries && listEntries.length === 0 && (
+            <div className="col-span-full flex justify-center py-20">
+              <Loader2 className="w-12 h-12 text-faded-gold animate-spin" />
+            </div>
+          )}
           <AnimatePresence>
-            {filteredEntries.map(entry => (
+            {listEntries.map(entry => (
               <motion.div
                 key={entry.id}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -703,10 +785,18 @@ export function Dashboard() {
             ))}
           </AnimatePresence>
           
-          {filteredEntries.length === 0 && (
+          {!isLoadingEntries && listEntries.length === 0 && (
             <div className="col-span-full text-center py-20">
-              <Wand2 className="w-16 h-16 text-faded-gold/50 mx-auto mb-4" />
-              <p className="text-2xl text-faded-gold/70 font-['Caveat']">No magical records found...</p>
+              <Wand2 className="w-16 h-16 text-faded-gold/50 mx-auto mb-4 block" />
+              <p className="text-2xl text-faded-gold/70 font-['Caveat'] pt-10 block">No magical records found...</p>
+            </div>
+          )}
+          
+          <div ref={sentinelRef} className="h-px w-full col-span-full" aria-hidden />
+          
+          {!hasMore && listEntries.length > 0 && (
+            <div className="col-span-full text-center py-8">
+              <p className="text-[#C9B896]/70 font-['STSong'] text-xl italic">记忆提取完毕</p>
             </div>
           )}
         </section>
@@ -740,7 +830,7 @@ export function Dashboard() {
                 </button>
                 
                 {(() => {
-                  const entry = entries.find(e => e.id === viewingEntryId);
+                  const entry = listEntries.find(e => e.id === viewingEntryId);
                   if (!entry) return null;
                   return (
                     <div className="flex flex-col gap-6 pt-2 min-h-full">

@@ -31,7 +31,7 @@ import {
   subMonths,
   getDay,
 } from "date-fns";
-import { useDiaryStore } from "../store";
+import { useDiaryStore, type DiaryEntry } from "../store";
 import { cn } from "../components/UI";
 import { toast } from "sonner";
 import {
@@ -102,6 +102,12 @@ export function DiaryView({
   const [isOpen, setIsOpen] = useState(initialOpen);
   const [isHoveringCover, setIsHoveringCover] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [showSearchResultModal, setShowSearchResultModal] = useState(false);
+  const [searchResultModalEntries, setSearchResultModalEntries] = useState<
+    DiaryEntry[]
+  >([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingBook, setIsDeletingBook] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -238,7 +244,7 @@ export function DiaryView({
     } else if (currentBookId) {
       router.push(`/diary/new?bookId=${currentBookId}&open=1&focus=1`);
     } else {
-      router.push('/');
+      router.push("/");
     }
   };
 
@@ -286,9 +292,17 @@ export function DiaryView({
   const currentBookId = isNewEntry ? paramBookId : entry?.bookId;
   const currentBook = books.find((b) => b.id === currentBookId);
 
-  // Compute prev/next entries early so useEffects can reference them
+  // Compute prev/next entries: 当前日记本内，按关键词模糊筛选
   const bookEntries = entries
     .filter((e) => e.bookId === currentBookId)
+    .filter((e) => {
+      if (!searchKeyword.trim()) return true;
+      const kw = searchKeyword.trim().toLowerCase();
+      return (
+        (e.title ?? "").toLowerCase().includes(kw) ||
+        e.content.toLowerCase().includes(kw)
+      );
+    })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   const currentIndex = isNewEntry
@@ -299,6 +313,22 @@ export function DiaryView({
     currentIndex >= 0 && currentIndex < bookEntries.length - 1
       ? bookEntries[currentIndex + 1]
       : null;
+
+  const handleSearchEnter = () => {
+    if (!searchKeyword.trim()) return;
+    if (bookEntries.length === 0) {
+      toast.info("无匹配结果");
+      return;
+    }
+    if (bookEntries.length === 1) {
+      router.push(`/diary/${bookEntries[0].id}?open=1`);
+      setSearchKeyword("");
+      setIsSearchOpen(false);
+      return;
+    }
+    setSearchResultModalEntries(bookEntries);
+    setShowSearchResultModal(true);
+  };
 
   useEffect(() => {
     // If not creating a new entry and no entry found, or if new but no bookId provided
@@ -381,7 +411,7 @@ export function DiaryView({
       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&q=80')] bg-cover opacity-10 mix-blend-overlay pointer-events-none" />
 
       {/* Top Navigation */}
-      <header className="flex justify-between items-center z-50 sticky top-0 bg-[#2c2420]/80 backdrop-blur-md border-b border-faded-gold/20 px-[24px] py-[16px] mx-[0px] mt-[0px] mb-[20px]">
+      <header className="flex justify-between items-center z-50 sticky top-0 bg-[#2c2420]/80 backdrop-blur-md border-b border-faded-gold/20 px-[24px] py-[16px] mx-[0px] mt-[0px] mb-[20px] gap-4 flex-wrap">
         <button
           onClick={() => {
             loadData();
@@ -866,69 +896,177 @@ export function DiaryView({
       </main>
 
       {/* Bottom Actions */}
-      <footer className="p-6 bg-gradient-to-t from-[#1a1412] via-[#1a1412]/80 to-transparent z-20 sticky bottom-0 flex justify-center items-center gap-4 sm:gap-6 mt-auto">
-        {/* 隐藏式删除单条日记：最左侧，低透明度，hover 时显现 */}
-        {isOpen && !isNewEntry && entry && (
-          <button
-            onClick={handleDeleteEntry}
-            disabled={isTearingEntry}
-            aria-label="删除此页日记"
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all backdrop-blur-sm font-['Cinzel'] font-bold",
-              "opacity-25 hover:opacity-100 hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/50",
-              "border-[#C9B896]/30 text-[#C9B896]/70",
-              "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
-            )}>
-            <Trash2 className="w-5 h-5" />
-            <span className="hidden sm:inline text-sm">Tear</span>
-          </button>
-        )}
-        <ActionButton icon={<Search className="w-5 h-5" />} label="Search" />
-        {isEditing && isOpen && (
+      <footer className="p-6 bg-gradient-to-t from-[#1a1412] via-[#1a1412]/80 to-transparent z-20 sticky bottom-0 ">
+        <div className="flex items-center justify-center gap-2 mt-2">
+          {/* 隐藏式删除单条日记：最左侧，低透明度，hover 时显现 */}
+          {isOpen && !isNewEntry && entry && (
+            <button
+              onClick={handleDeleteEntry}
+              disabled={isTearingEntry}
+              aria-label="删除此页日记"
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all backdrop-blur-sm font-['Cinzel'] font-bold",
+                "opacity-25 hover:opacity-100 hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/50",
+                "border-[#C9B896]/30 text-[#C9B896]/70",
+                "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+              )}>
+              <Trash2 className="w-5 h-5" />
+              <span className="hidden sm:inline text-sm">Tear</span>
+            </button>
+          )}
           <ActionButton
-            icon={
-              isSaving ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Edit3 className="w-5 h-5" />
-              )
+            icon={<Search className="w-5 h-5" />}
+            label="Search"
+            onClick={() => setIsSearchOpen((prev) => !prev)}
+            className={
+              isSearchOpen ? "bg-faded-gold/20 border-faded-gold" : undefined
             }
-            label={isSaving ? "保存中..." : "Save"}
-            onClick={handleSave}
-            disabled={isSaving || images.some((img) => img.loading)}
-            className="bg-faded-gold text-[#2c2420] border-faded-gold hover:bg-yellow hover:border-white shadow-[0_0_15px_rgba(201,184,150,0.6)] disabled:opacity-70 disabled:cursor-not-allowed"
           />
-        )}
-        {!isEditing && isOpen && (
-          <ActionButton
-            icon={<Edit3 className="w-5 h-5" />}
-            label="Edit"
-            onClick={() => setIsEditing(true)}
-          />
-        )}
-        {!isOpen && (
-          <ActionButton
-            icon={<Trash2 className="w-5 h-5" />}
-            label="Obliviate"
-            onClick={handleDeleteBook}
-            className="hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/50"
-          />
-        )}
-        {/* 隐藏式添加日记：最右侧，低透明度，hover 时显现 */}
-        {isOpen && currentBookId && !isEditing && (
-          <button
-            onClick={handleAddEntry}
-            aria-label="添加新日记"
-            className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all backdrop-blur-sm font-['Cinzel'] font-bold",
-              "opacity-25 hover:opacity-100 hover:bg-faded-gold/20 hover:text-faded-gold hover:border-faded-gold/50",
-              "border-[#C9B896]/30 text-[#C9B896]/70",
-            )}>
-            <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline text-sm">Add</span>
-          </button>
-        )}
+          {isEditing && isOpen && (
+            <ActionButton
+              icon={
+                isSaving ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Edit3 className="w-5 h-5" />
+                )
+              }
+              label={isSaving ? "保存中..." : "Save"}
+              onClick={handleSave}
+              disabled={isSaving || images.some((img) => img.loading)}
+              className="bg-faded-gold text-[#2c2420] border-faded-gold hover:bg-yellow hover:border-white shadow-[0_0_15px_rgba(201,184,150,0.6)] disabled:opacity-70 disabled:cursor-not-allowed"
+            />
+          )}
+          {!isEditing && isOpen && (
+            <ActionButton
+              icon={<Edit3 className="w-5 h-5" />}
+              label="Edit"
+              onClick={() => setIsEditing(true)}
+            />
+          )}
+          {!isOpen && (
+            <ActionButton
+              icon={<Trash2 className="w-5 h-5" />}
+              label="Obliviate"
+              onClick={handleDeleteBook}
+              className="hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/50"
+            />
+          )}
+          {/* 隐藏式添加日记：最右侧，低透明度，hover 时显现 */}
+          {isOpen && currentBookId && !isEditing && (
+            <button
+              onClick={handleAddEntry}
+              aria-label="添加新日记"
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all backdrop-blur-sm font-['Cinzel'] font-bold",
+                "opacity-25 hover:opacity-100 hover:bg-faded-gold/20 hover:text-faded-gold hover:border-faded-gold/50",
+                "border-[#C9B896]/30 text-[#C9B896]/70",
+              )}>
+              <Plus className="w-5 h-5" />
+              <span className="hidden sm:inline text-sm">Add</span>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center justify-center gap-2 pt-5 pb-3">
+          {isSearchOpen && (
+            <div className="flex-1 min-w-[200px] max-w-[320px] flex items-center gap-2 mb-2">
+              <Search className="w-5 h-5 text-faded-gold/70 flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Search in this book..."
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSearchEnter();
+                  }
+                }}
+                className="flex-1 bg-white/10 border border-faded-gold/40 rounded-full py-2 pl-4 pr-4 outline-none focus:ring-2 focus:ring-faded-gold/50 text-faded-gold placeholder:text-faded-gold/40 font-['Cinzel'] text-sm"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchKeyword("");
+                  setIsSearchOpen(false);
+                }}
+                className="p-1.5 text-faded-gold/70 hover:text-faded-gold transition-colors"
+                aria-label="Close search">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
       </footer>
+
+      {/* Search Result Modal - 多条匹配时展示列表供选择 */}
+      <AnimatePresence>
+        {showSearchResultModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-[#1a1412]/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setShowSearchResultModal(false)}>
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg max-h-[80vh] bg-[#2c2420] rounded-xl border-2 border-faded-gold/40 shadow-[0_0_40px_rgba(201,184,150,0.2)] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}>
+              <div
+                className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay"
+                style={{
+                  backgroundImage:
+                    'url("https://www.transparenttextures.com/patterns/aged-paper.png")',
+                }}
+              />
+              <div className="relative p-6 flex flex-col flex-1 min-h-0">
+                <h3 className="text-xl font-['Cinzel'] font-bold text-faded-gold mb-4">
+                  选择要跳转的日记
+                </h3>
+                <div className="flex-1 overflow-y-auto magic-scrollbar space-y-2 pr-2">
+                  {searchResultModalEntries.map((e) => (
+                    <button
+                      key={e.id}
+                      onClick={() => {
+                        router.push(`/diary/${e.id}?open=1`);
+                        setShowSearchResultModal(false);
+                        setSearchKeyword("");
+                        setIsSearchOpen(false);
+                      }}
+                      className="w-full text-left p-4 rounded-lg bg-white/5 border border-faded-gold/20 hover:bg-white/10 hover:border-faded-gold/40 transition-all group">
+                      <div className="font-['Cinzel'] text-faded-gold font-medium truncate">
+                        {e.title || "（无标题）"}
+                      </div>
+                      <div className="text-sm text-[#C9B896]/70 mt-1">
+                        {format(new Date(e.date), "yyyy-MM-dd")}
+                      </div>
+                      {e.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {e.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-xs px-2 py-0.5 rounded-full bg-rusty-copper/20 text-rusty-copper border border-rusty-copper/30">
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowSearchResultModal(false)}
+                  className="mt-4 px-4 py-2 rounded-full border border-faded-gold/30 text-faded-gold hover:bg-faded-gold/10 transition-colors font-['Cinzel'] text-sm">
+                  取消
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Magical Delete Confirmation Modal */}
       <AnimatePresence>

@@ -13,8 +13,11 @@ import { cn } from '../components/UI';
 import { MagicCalendar } from '../components/MagicCalendar';
 import { MagicCalendarRange } from '../components/MagicCalendarRange';
 import { AuthModal } from '../components/auth/AuthModal';
+import { OldFriendButton } from '../components/OldFriendChat/OldFriendButton';
+import { OldFriendChatDrawer } from '../components/OldFriendChat/OldFriendChatDrawer';
 import { toast } from 'sonner';
 import { getEntriesPaginated, getTags } from '../actions/diary';
+import type { OldFriendContext } from '../types/ai-chat';
 
 const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -87,6 +90,7 @@ export function Dashboard() {
   const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCreatingBook, setIsCreatingBook] = useState(false);
+  const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
 
   // 分页列表状态
@@ -719,18 +723,46 @@ export function Dashboard() {
               </div>
             </div>
             
-            <div className="relative w-full md:w-96 z-10">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4540]/60" />
-              <input 
-                type="text" 
-                placeholder="Search the archives..." 
-                className="w-full bg-white/50 border border-[#4A4540]/30 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-[#8B5A5A] text-xl font-['Caveat'] placeholder:text-[#4A4540]/50 transition-colors hover:bg-white/80"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
+            <div className="relative flex items-center gap-3 flex-1 min-w-0">
+              <div className="relative w-full md:max-w-[280px] z-10">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4540]/60" />
+                <input 
+                  type="text" 
+                  placeholder="Search the archives..." 
+                  className="w-full bg-white/50 border border-[#4A4540]/30 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-[#8B5A5A] text-xl font-['Caveat'] placeholder:text-[#4A4540]/50 transition-colors hover:bg-white/80"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <OldFriendButton onClick={() => setIsOldFriendOpen(true)} />
             </div>
           </div>
         </section>
+
+        <OldFriendChatDrawer
+          open={isOldFriendOpen}
+          onClose={() => setIsOldFriendOpen(false)}
+          context={
+            {
+              filters: {
+                dateFrom: selectedFilterDateRange?.from,
+                dateTo: selectedFilterDateRange?.to,
+                bookId: selectedFilterBook ?? undefined,
+                bookName: selectedFilterBook ? books.find((b) => b.id === selectedFilterBook)?.name : undefined,
+                tag: selectedTag ?? undefined,
+                keyword: debouncedSearchQuery.trim() || undefined,
+              },
+              entries: listEntries.slice(0, 30).map((e) => ({
+                id: e.id,
+                title: e.title,
+                content: e.content,
+                date: e.date,
+                tags: e.tags,
+              })),
+              source: 'dashboard',
+            } satisfies OldFriendContext
+          }
+        />
 
         {/* Section 4: Feed */}
         <section className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 mb-30">

@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   CalendarDays,
   Edit3,
+  MessageCircle,
   Search,
   Trash2,
   Share2,
@@ -39,6 +40,8 @@ import {
   DiaryImage,
 } from "../components/ImagePreviewGallery";
 import { MagicCalendar } from "../components/MagicCalendar";
+import { OldFriendChatDrawer } from "../components/OldFriendChat/OldFriendChatDrawer";
+import type { OldFriendContext } from "../types/ai-chat";
 
 const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -112,6 +115,7 @@ export function DiaryView({
   const [isDeletingBook, setIsDeletingBook] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTearingEntry, setIsTearingEntry] = useState(false);
+  const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
 
   const isNewEntry = id === "new";
   const [isEditing, setIsEditing] = useState(isNewEntry);
@@ -914,6 +918,13 @@ export function DiaryView({
               <span className="hidden sm:inline text-sm">Tear</span>
             </button>
           )}
+          {!isOpen && (
+            <ActionButton
+              icon={<MessageCircle className="w-5 h-5" />}
+              label="老朋友"
+              onClick={() => setIsOldFriendOpen(true)}
+            />
+          )}
           <ActionButton
             icon={<Search className="w-5 h-5" />}
             label="Search"
@@ -1067,6 +1078,29 @@ export function DiaryView({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <OldFriendChatDrawer
+        open={isOldFriendOpen}
+        onClose={() => setIsOldFriendOpen(false)}
+        context={
+          {
+            filters: {
+              bookId: currentBookId,
+              bookName: currentBook?.name,
+              keyword: searchKeyword.trim() || undefined,
+            },
+            entries: bookEntries.map((e) => ({
+              id: e.id,
+              title: e.title,
+              content: e.content,
+              date: e.date,
+              tags: e.tags,
+            })),
+            source: "diary-book",
+            currentBookId,
+          } satisfies OldFriendContext
+        }
+      />
 
       {/* Magical Delete Confirmation Modal */}
       <AnimatePresence>

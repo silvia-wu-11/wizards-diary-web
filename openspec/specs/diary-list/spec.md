@@ -75,11 +75,11 @@
 
 #### Scenario: 用户输入关键词，模糊匹配 title 和 content
 - GIVEN 用户已登录且在首页
-- AND 某日记 title 为 "Learning Wingardium"、content 含 "leviosa"
-- WHEN 用户输入关键词 "wing"
-- THEN 系统展示该日记（title 包含 "wing"，不区分大小写）
-- WHEN 用户输入关键词 "levi"
-- THEN 系统展示该日记（content 包含 "levi"）
+- AND 某日记 title 为 "Learning Levitation"、content 含 "charm"
+- WHEN 用户输入关键词 "learn"
+- THEN 系统展示该日记（title 包含 "learn"，不区分大小写）
+- WHEN 用户输入关键词 "char"
+- THEN 系统展示该日记（content 包含 "char"）
 - AND 匹配不区分大小写
 
 #### Scenario: 多条件组合筛选

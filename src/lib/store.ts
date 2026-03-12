@@ -27,21 +27,21 @@ export function useDiaryStore() {
         const initialData: DiaryEntry[] = [
           {
             id: uuidv4(),
-            title: 'First Day at Hogwarts',
-            content: "Today was absolutely magical! The Sorting Hat placed me in Gryffindor, just like I hoped. The feast was incredible - I've never seen so much food in my life. I think I'm going to like it here.",
+            title: 'First Day at the Academy',
+            content: "Today was absolutely magical! I was sorted into the Tower House, just as I hoped. The welcome feast was incredible - I've never seen so much food in my life. I think I'm going to like it here.",
             date: new Date(Date.now() - 86400000 * 2).toISOString(),
-            tags: ['Hogwarts', 'Sorting Hat', 'Gryffindor'],
+            tags: ['Academy', 'Tower House', 'First Day'],
             mood: 'magical',
-            preview: "Today was absolutely magical! The Sorting Hat placed me in Gryffindor..."
+            preview: "Today was absolutely magical! I was sorted into the Tower House..."
           },
           {
             id: uuidv4(),
-            title: 'Potions Class Disaster',
-            content: "Professor Snape is terrifying. I accidentally added the porcupine quills before taking the cauldron off the fire. Neville's cauldron melted into a twisted blob. At least Hermione helped me clean up.",
+            title: 'Alchemy Class Mishap',
+            content: "The alchemy master is quite strict. I accidentally added the porcupine quills before taking the cauldron off the fire. A classmate's cauldron melted into a twisted blob. At least another student helped me clean up.",
             date: new Date(Date.now() - 86400000).toISOString(),
-            tags: ['Potions', 'Snape', 'Disaster'],
+            tags: ['Alchemy', 'Mishap', 'Disaster'],
             mood: 'sad',
-            preview: "Professor Snape is terrifying. I accidentally added the porcupine quills..."
+            preview: "The alchemy master is quite strict. I accidentally added the porcupine quills..."
           }
         ];
         setEntries(initialData);

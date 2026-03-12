@@ -30,8 +30,8 @@ const MOCK_ENTRIES: DiaryEntry[] = [
     bookId: 'book-1',
     date: new Date().toISOString(),
     title: 'Arrival at the Castle',
-    content: "The boat ride across the black lake was mesmerizing. The giant squid waved a tentacle at us! I've been sorted into... wait for it...",
-    tags: ['Hogwarts', 'First Day'],
+    content: "The boat ride across the misty lake was mesmerizing. A curious creature waved from the depths! I've been assigned to my house... wait for it...",
+    tags: ['Academy', 'First Day'],
     createdAt: Date.now(),
   },
   {
@@ -39,7 +39,7 @@ const MOCK_ENTRIES: DiaryEntry[] = [
     bookId: 'book-1',
     date: new Date(Date.now() - 86400000).toISOString(),
     title: 'Transfiguration Trouble',
-    content: "Today we tried to turn a matchstick into a needle. Mine just got pointy and silver at one end. Professor McGonagall gave me a stern look.",
+    content: "Today we tried to turn a matchstick into a needle. Mine just got pointy and silver at one end. The transformation master gave me a stern look.",
     tags: ['Class', 'Magic'],
     createdAt: Date.now() - 86400000,
   }

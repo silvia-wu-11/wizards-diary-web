@@ -964,7 +964,7 @@ export function Dashboard() {
                     required
                     value={newBookName}
                     onChange={e => setNewBookName(e.target.value)}
-                    placeholder="e.g. Dark Arts Study, Potion Recipes..." 
+                    placeholder="e.g. Arcane Studies, Potion Recipes..." 
                     className="w-full bg-black/20 border border-[#8B5A5A]/50 rounded-lg px-4 py-3 text-[#EBE5DC] font-['Cinzel'] outline-none focus:border-[#C9B896] focus:ring-1 focus:ring-[#C9B896] placeholder:text-[#EBE5DC]/30 transition-all"
                   />
                 </div>
@@ -973,10 +973,10 @@ export function Dashboard() {
                   <label className="block font-['Cinzel'] text-[#C9B896] mb-3 font-bold">Leather Binding Dye</label>
                   <div className="flex gap-4">
                     {[
-                      { hex: '#5c2a2a', name: 'Gryffindor Crimson' },
-                      { hex: '#2c3e50', name: 'Ravenclaw Midnight' },
-                      { hex: '#1e3f20', name: 'Slytherin Emerald' },
-                      { hex: '#8a6b22', name: 'Hufflepuff Gold' },
+                      { hex: '#5c2a2a', name: 'Crimson Red' },
+                      { hex: '#2c3e50', name: 'Midnight Blue' },
+                      { hex: '#1e3f20', name: 'Forest Emerald' },
+                      { hex: '#8a6b22', name: 'Antique Gold' },
                       { hex: '#2c2420', name: 'Ancient Brown' }
                     ].map(color => (
                       <button

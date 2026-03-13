@@ -128,12 +128,13 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         return;
       }
       // 注册成功后自动登录并跳转到首页
-      const signInResult = await signIn('credentials', {
+      const signInResult: any = await signIn('credentials', {
         email: parsed.data.email,
         password: parsed.data.password,
         callbackUrl: '/',
         redirect: true,
       });
+      console.log('signInResult',signInResult);
       if (signInResult?.error) {
         setFormError('账号已创建，请手动登录');
       }

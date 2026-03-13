@@ -21,25 +21,25 @@ const STORAGE_KEY_BOOKS = 'wizard_diaries_books';
 
 // Initial Mock Data
 const INITIAL_BOOKS: Book[] = [
-  { id: 'book-1', title: 'Potions Class', coverStyle: 'leather-brown' },
+  { id: 'book-1', title: 'Alchemy Notes', coverStyle: 'leather-brown' },
   { id: 'book-2', title: 'Daily Spells', coverStyle: 'leather-red' },
 ];
 
 const INITIAL_ENTRIES: DiaryEntry[] = [
   {
     id: 'entry-1',
-    title: 'First Day at Hogwarts',
-    content: 'Today I learned how to cast Wingardium Leviosa. It was harder than I thought, but Hermione helped me get the wrist movement right.',
+    title: 'First Day at the Academy',
+    content: 'Today I learned how to cast a simple levitation charm. It was harder than I thought, but a classmate helped me get the wrist movement right.',
     date: new Date(Date.now() - 86400000 * 2).toISOString(),
-    tags: ['Hogwarts', 'Spells'],
+    tags: ['Academy', 'Spells'],
     bookId: 'book-1',
   },
   {
     id: 'entry-2',
-    title: 'Visit to Hogsmeade',
-    content: 'Drank the best Butterbeer at the Three Broomsticks. The snow made everything look magical.',
+    title: 'Visit to the Market Square',
+    content: 'Had the best warm spiced cider at the old tavern. The snow made everything look magical.',
     date: new Date(Date.now() - 86400000).toISOString(),
-    tags: ['Hogsmeade', 'Butterbeer'],
+    tags: ['Town', 'Tavern'],
     bookId: 'book-2',
   },
 ];
@@ -84,11 +84,3 @@ export const deleteEntry = (id: string) => {
   const updated = entries.filter((e) => e.id !== id);
   localStorage.setItem(STORAGE_KEY_DIARIES, JSON.stringify(updated));
 };
-
-// UUID generator simple fallback
-function uuidv4() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}

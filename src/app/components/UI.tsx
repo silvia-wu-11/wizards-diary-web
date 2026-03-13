@@ -49,14 +49,16 @@ export function LeatherBox({ children, className, isInteractive = false }: Parch
   );
 }
 
-export function MagicButton({ children, className, onClick, type = "button" }: { children: ReactNode, className?: string, onClick?: () => void, type?: "button" | "submit" | "reset" }) {
+export function MagicButton({ children, className, onClick, type = "button", disabled }: { children: ReactNode, className?: string, onClick?: () => void, type?: "button" | "submit" | "reset"; disabled?: boolean }) {
   return (
     <button
       type={type}
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         'bg-[#8B5A5A] hover:bg-[#724545] text-[#EBE5DC] font-bold py-2 px-6 rounded-sm shadow-md transition-all duration-200 border border-[#C9B896]/50',
         'hover:shadow-[0_0_15px_#C9B896] hover:-translate-y-0.5',
+        disabled && 'opacity-70 cursor-not-allowed hover:translate-y-0',
         className
       )}
       style={{ fontFamily: "'Cinzel', serif" }}

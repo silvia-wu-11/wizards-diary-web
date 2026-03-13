@@ -1,13 +1,23 @@
+'use client';
+
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { ImagePreviewGallery, DiaryImage } from '../components/ImagePreviewGallery';
-import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, ChevronLeft, ChevronRight, Loader2, LogIn } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDiaryStore } from '../store';
 import { ParchmentBox, LeatherBox, MagicButton } from '../components/UI';
 import { cn } from '../components/UI';
 import { MagicCalendar } from '../components/MagicCalendar';
+import { MagicCalendarRange } from '../components/MagicCalendarRange';
+import { AuthModal } from '../components/auth/AuthModal';
+import { OldFriendButton } from '../components/OldFriendChat/OldFriendButton';
+import { OldFriendChatDrawer } from '../components/OldFriendChat/OldFriendChatDrawer';
+import { toast } from 'sonner';
+import { getEntriesPaginated, getTags } from '../actions/diary';
+import type { OldFriendContext } from '../types/ai-chat';
 
 const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -44,13 +54,15 @@ const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
 };
 
 export function Dashboard() {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const { data: session } = useSession();
   const { entries, books, saveEntry, addBook } = useDiaryStore();
+  const [isSaving, setIsSaving] = useState(false);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagsStr, setTagsStr] = useState('');
-  const [selectedBook, setSelectedBook] = useState(books[0]?.id || 'book-1');
+  const [selectedBook, setSelectedBook] = useState(books[0]?.id ?? '');
   const [searchQuery, setSearchQuery] = useState('');
   const [images, setImages] = useState<DiaryImage[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
@@ -60,7 +72,7 @@ export function Dashboard() {
   const [newBookColor, setNewBookColor] = useState('#5c2a2a');
   const [newBookType, setNewBookType] = useState('potion');
   const [viewingEntryId, setViewingEntryId] = useState<string | null>(null);
-  const [selectedFilterDate, setSelectedFilterDate] = useState<string | null>(null);
+  const [selectedFilterDateRange, setSelectedFilterDateRange] = useState<{ from: string; to: string } | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isEntryDatePickerOpen, setIsEntryDatePickerOpen] = useState(false);
   
@@ -74,7 +86,35 @@ export function Dashboard() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
   const [isBookDropdownOpen, setIsBookDropdownOpen] = useState(false);
+  const [selectedFilterBook, setSelectedFilterBook] = useState<string | null>(null);
+  const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isCreatingBook, setIsCreatingBook] = useState(false);
+  const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 分页列表状态
+  const [listEntries, setListEntries] = useState<typeof entries>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false);
+
+  // 关键词防抖 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // 默认选中第一个日记本
+  useEffect(() => {
+    if (books.length > 0 && (!selectedBook || !books.some(b => b.id === selectedBook))) {
+      setSelectedBook(books[0].id);
+    }
+  }, [books, selectedBook]);
 
   // Close book dropdown on outside click
   useEffect(() => {
@@ -89,14 +129,93 @@ export function Dashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isBookDropdownOpen]);
 
-  // Extract unique dates that have entries
-  const availableDates = Array.from(new Set(entries.map(e => {
-    const d = new Date(e.date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }))).sort((a, b) => b.localeCompare(a));
+  // 加载 tags 用于筛选下拉
+  useEffect(() => {
+    if (session?.user) {
+      getTags().then(setAvailableTags).catch(() => {});
+    }
+  }, [session?.user]);
 
-  // Extract unique tags that have entries
-  const availableTags = Array.from(new Set(entries.flatMap(e => e.tags))).sort((a, b) => a.localeCompare(b));
+  // 加载分页日记：筛选条件变化时重置并加载第一页
+  useEffect(() => {
+    if (!session?.user) return;
+    setListEntries([]);
+    setNextCursor(null);
+    setHasMore(true);
+    setIsLoadingEntries(true);
+    getEntriesPaginated({
+      dateFrom: selectedFilterDateRange?.from,
+      dateTo: selectedFilterDateRange?.to,
+      tag: selectedTag ?? undefined,
+      bookId: selectedFilterBook ?? undefined,
+      keyword: debouncedSearchQuery.trim() || undefined,
+      limit: 30,
+    })
+      .then((res) => {
+        setListEntries(res.entries);
+        setNextCursor(res.nextCursor);
+        setHasMore(res.hasMore);
+      })
+      .catch(() => {
+        setListEntries([]);
+        setNextCursor(null);
+        setHasMore(false);
+      })
+      .finally(() => setIsLoadingEntries(false));
+  }, [
+    session?.user,
+    selectedFilterDateRange?.from,
+    selectedFilterDateRange?.to,
+    selectedTag,
+    selectedFilterBook,
+    debouncedSearchQuery,
+  ]);
+
+  // 无限滚动：距离底部 30vh 时加载下一页
+  useEffect(() => {
+    if (!session?.user || !hasMore || isLoadingEntries || !nextCursor) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting || isLoadingMoreRef.current) return;
+        isLoadingMoreRef.current = true;
+        setIsLoadingEntries(true);
+        getEntriesPaginated({
+          dateFrom: selectedFilterDateRange?.from,
+          dateTo: selectedFilterDateRange?.to,
+          tag: selectedTag ?? undefined,
+          bookId: selectedFilterBook ?? undefined,
+          keyword: debouncedSearchQuery.trim() || undefined,
+          cursor: nextCursor,
+          limit: 30,
+        })
+          .then((res) => {
+            setListEntries((prev) => [...prev, ...res.entries]);
+            setNextCursor(res.nextCursor);
+            setHasMore(res.hasMore);
+          })
+          .catch(() => setHasMore(false))
+          .finally(() => {
+            isLoadingMoreRef.current = false;
+            setIsLoadingEntries(false);
+          });
+      },
+      { rootMargin: '0px 0px 30vh 0px', threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [
+    session?.user,
+    hasMore,
+    isLoadingEntries,
+    nextCursor,
+    selectedFilterDateRange?.from,
+    selectedFilterDateRange?.to,
+    selectedTag,
+    selectedFilterBook,
+    debouncedSearchQuery,
+  ]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -118,68 +237,73 @@ export function Dashboard() {
     e.target.value = '';
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || !title.trim()) return;
+    if (!content.trim()) return;
     if (images.some(img => img.loading)) {
-      alert("Please wait for images to finish loading.");
+      toast.error('请等待图片加载完成');
       return;
     }
 
-    saveEntry({
-      title,
-      content,
-      bookId: selectedBook,
-      date: new Date(entryDate).toISOString(),
-      tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
-      images: images.length > 0 ? images.map(img => img.url) : undefined
-    });
-    
-    setTitle('');
-    setContent('');
-    setTagsStr('');
-    setImages([]);
+    setIsSaving(true);
+    try {
+      await saveEntry({
+        title: title.trim() || null,
+        content,
+        bookId: selectedBook || undefined,
+        date: new Date(entryDate).toISOString(),
+        tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
+        images: images.length > 0 ? images.filter(img => !img.loading && img.url).map(img => img.url) : undefined
+      });
+      toast.success('日记已保存');
+      setTitle('');
+      setContent('');
+      setTagsStr('');
+      setImages([]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '保存失败');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleCreateBook = (e: React.FormEvent) => {
+  const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBookName.trim()) return;
-    
-    const newBook = {
-      id: `book-${Date.now()}`,
-      name: newBookName,
-      color: newBookColor,
-      type: newBookType
-    };
-    
-    // Instead of setState, use the new addBook function
-    addBook(newBook);
-    
-    setSelectedBook(newBook.id);
-    setNewBookName('');
-    setIsNewBookModalOpen(false);
+
+    if (!session?.user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setIsCreatingBook(true);
+    try {
+      const created = await addBook({
+        name: newBookName.trim(),
+        color: newBookColor,
+        type: newBookType
+      });
+      toast.success('日记本已创建');
+      setSelectedBook(created.id);
+      setNewBookName('');
+      setNewBookColor('#5c2a2a');
+      setNewBookType('potion');
+      setIsNewBookModalOpen(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '创建失败';
+      if (msg === 'Unauthorized' || msg.includes('未登录')) {
+        setIsAuthModalOpen(true);
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setIsCreatingBook(false);
+    }
   };
-
-  const filteredEntries = entries.filter(e => {
-    const matchesSearch = e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          e.content.toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
-    
-    if (selectedFilterDate) {
-      const d = new Date(e.date);
-      const entryDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      if (entryDateStr !== selectedFilterDate) return false;
-    }
-
-    if (selectedTag && !e.tags.includes(selectedTag)) {
-      return false;
-    }
-    
-    return true;
-  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-castle-stone via-[#2c2438] to-[#1a1420] text-parchment-white p-6 pb-20 font-sans relative overflow-hidden">
+      <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
       <div className="absolute inset-0 pointer-events-none opacity-30" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&auto=format&fit=crop&q=80')", backgroundSize: "cover", mixBlendMode: 'overlay', filter: 'hue-rotate(20deg) saturate(150%)' }} />
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6b4c7a] rounded-full blur-[150px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#8b6b45] rounded-full blur-[150px] opacity-20 pointer-events-none" />
@@ -187,7 +311,16 @@ export function Dashboard() {
       <div className="max-w-6xl mx-auto space-y-12 relative z-10">
         
         {/* Header */}
-        <header className="text-center py-8 m-[0px]">
+        <header className="relative text-center py-8 m-[0px]">
+          <button
+            type="button"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="absolute top-0 right-0 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
+            aria-label={session ? '账户' : '登录或创建账号'}
+          >
+            <LogIn className="size-4" />
+            {session ? 'account' : 'login'}
+          </button>
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
             <h1 className="text-5xl md:text-6xl text-faded-gold flex items-center justify-center gap-4 mb-2 drop-shadow-[0_0_10px_rgba(201,184,150,0.5)]">
               <Star className="w-8 h-8 text-faded-gold animate-pulse" />
@@ -357,7 +490,16 @@ export function Dashboard() {
                         <ImageIcon className="w-7 h-7" />
                       </label>
                     )}
-                    <MagicButton type="submit">Seal Entry</MagicButton>
+                    <MagicButton type="submit" disabled={isSaving}>
+                      {isSaving ? (
+                        <span className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          保存中...
+                        </span>
+                      ) : (
+                        'Seal Entry'
+                      )}
+                    </MagicButton>
                   </div>
                 </div>
               </form>
@@ -374,7 +516,7 @@ export function Dashboard() {
             {books.map((book, idx) => (
               <motion.div 
                 key={book.id}
-                onClick={() => navigate(`/book/${book.id}`)}
+                onClick={() => router.push(`/book/${book.id}`)}
                 whileHover={{ y: -10, rotate: -2, scale: 1.05 }}
                 className={cn(
                   "relative w-32 h-44 rounded-r-lg shadow-2xl cursor-pointer flex-shrink-0 flex items-center justify-center text-center p-2 border-l-8 border-[#1a1412] transition-colors group",
@@ -409,20 +551,22 @@ export function Dashboard() {
             <div className="flex items-center gap-4 w-full md:w-auto relative z-10">
               <div className="relative">
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setIsDatePickerOpen(!isDatePickerOpen); }}
+                  onClick={(e) => { e.stopPropagation(); setIsBookFilterDropdownOpen(false); setIsTagDropdownOpen(false); setIsDatePickerOpen(!isDatePickerOpen); }}
                   onMouseDown={(e) => e.stopPropagation()}
                   className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
                 >
                   <Calendar className="w-5 h-5 text-[#4A4540]" />
                   <span className="font-['Cinzel'] font-bold text-[#4A4540]">
-                    {selectedFilterDate ? format(new Date(selectedFilterDate), 'MMM dd, yyyy') : 'All Dates'}
+                    {selectedFilterDateRange
+                      ? `${format(new Date(selectedFilterDateRange.from), 'MMM dd')} - ${format(new Date(selectedFilterDateRange.to), 'MMM dd, yyyy')}`
+                      : 'All Dates'}
                   </span>
-                  {selectedFilterDate && (
+                  {selectedFilterDateRange && (
                     <X 
                       className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]" 
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedFilterDate(null);
+                        setSelectedFilterDateRange(null);
                         setIsDatePickerOpen(false);
                       }}
                     />
@@ -431,22 +575,93 @@ export function Dashboard() {
                 
                 <AnimatePresence>
                   {isDatePickerOpen && (
-                    <MagicCalendar 
-                      currentDate={selectedFilterDate || undefined}
-                      entries={entries}
-                      onSelectDate={(dateStr) => {
-                        setSelectedFilterDate(dateStr);
+                    <MagicCalendarRange 
+                      range={selectedFilterDateRange ?? undefined}
+                      onSelectRange={(from, to) => {
+                        setSelectedFilterDateRange({ from, to });
                         setIsDatePickerOpen(false);
                       }}
+                      onClear={() => setSelectedFilterDateRange(null)}
                       onClose={() => setIsDatePickerOpen(false)}
-                      title="Dates with Magic Records"
+                      title="Select date range"
                     />
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Book Filter */}
               <div className="relative">
                 <button 
-                  onClick={() => setIsTagDropdownOpen(!isTagDropdownOpen)}
+                  onClick={() => { setIsDatePickerOpen(false); setIsTagDropdownOpen(false); setIsBookFilterDropdownOpen(!isBookFilterDropdownOpen); }}
+                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
+                >
+                  <BookOpen className="w-5 h-5 text-[#4A4540]" />
+                  <span className="font-['Cinzel'] font-bold text-[#4A4540]">
+                    {selectedFilterBook ? (books.find(b => b.id === selectedFilterBook)?.name ?? 'All Books') : 'All Books'}
+                  </span>
+                  {selectedFilterBook && (
+                    <X 
+                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFilterBook(null);
+                        setIsBookFilterDropdownOpen(false);
+                      }}
+                    />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {isBookFilterDropdownOpen && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute top-full mt-2 left-0 bg-[#EBE5DC] border border-[#8B5A5A]/30 rounded-lg shadow-xl p-3 z-[100] min-w-[200px] max-h-[300px] overflow-y-auto magic-scrollbar"
+                    >
+                      <div className="text-sm font-['Cinzel'] text-[#4A4540]/70 mb-2 px-2 border-b border-[#8B5A5A]/20 pb-1">
+                        Diary Books
+                      </div>
+                      {books.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {books.map(book => (
+                            <button
+                              key={book.id}
+                              onClick={() => {
+                                setSelectedFilterBook(book.id);
+                                setIsBookFilterDropdownOpen(false);
+                              }}
+                              className={cn(
+                                "text-left px-3 py-2 rounded-md transition-colors flex items-center justify-between gap-2",
+                                selectedFilterBook === book.id 
+                                  ? "bg-[#8B5A5A] text-[#EBE5DC]" 
+                                  : "hover:bg-white/50 text-[#4A4540]"
+                              )}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span
+                                  className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-black/20"
+                                  style={{ backgroundColor: book.color || '#5c2a2a' }}
+                                />
+                                <span className="font-['Cinzel'] text-base">{book.name}</span>
+                              </span>
+                              {selectedFilterBook === book.id && <Wand2 className="w-4 h-4 flex-shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-[#4A4540]/60 text-sm font-['Cinzel']">
+                          No books available
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="relative">
+                <button 
+                  onClick={() => { setIsDatePickerOpen(false); setIsBookFilterDropdownOpen(false); setIsTagDropdownOpen(!isTagDropdownOpen); }}
                   className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
                 >
                   <Filter className="w-5 h-5 text-[#4A4540]" />
@@ -508,23 +723,56 @@ export function Dashboard() {
               </div>
             </div>
             
-            <div className="relative w-full md:w-96 z-10">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4540]/60" />
-              <input 
-                type="text" 
-                placeholder="Search the archives..." 
-                className="w-full bg-white/50 border border-[#4A4540]/30 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-[#8B5A5A] text-xl font-['Caveat'] placeholder:text-[#4A4540]/50 transition-colors hover:bg-white/80"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
+            <div className="relative flex items-center gap-3 flex-1 min-w-0">
+              <div className="relative w-full md:max-w-[280px] z-10">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4540]/60" />
+                <input 
+                  type="text" 
+                  placeholder="Search the archives..." 
+                  className="w-full bg-white/50 border border-[#4A4540]/30 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-[#8B5A5A] text-xl font-['Caveat'] placeholder:text-[#4A4540]/50 transition-colors hover:bg-white/80"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <OldFriendButton onClick={() => setIsOldFriendOpen(true)} />
             </div>
           </div>
         </section>
 
+        <OldFriendChatDrawer
+          open={isOldFriendOpen}
+          onClose={() => setIsOldFriendOpen(false)}
+          context={
+            {
+              filters: {
+                dateFrom: selectedFilterDateRange?.from,
+                dateTo: selectedFilterDateRange?.to,
+                bookId: selectedFilterBook ?? undefined,
+                bookName: selectedFilterBook ? books.find((b) => b.id === selectedFilterBook)?.name : undefined,
+                tag: selectedTag ?? undefined,
+                keyword: debouncedSearchQuery.trim() || undefined,
+              },
+              entries: listEntries.slice(0, 30).map((e) => ({
+                id: e.id,
+                title: e.title,
+                content: e.content,
+                date: e.date,
+                tags: e.tags,
+              })),
+              source: 'dashboard',
+            } satisfies OldFriendContext
+          }
+        />
+
         {/* Section 4: Feed */}
-        <section className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+        <section className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6 mb-30">
+          {isLoadingEntries && listEntries.length === 0 && (
+            <div className="col-span-full flex justify-center py-20">
+              <Loader2 className="w-12 h-12 text-faded-gold animate-spin" />
+            </div>
+          )}
           <AnimatePresence>
-            {filteredEntries.map(entry => (
+            {listEntries.map(entry => (
               <motion.div
                 key={entry.id}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -540,7 +788,7 @@ export function Dashboard() {
                     className="flex flex-col gap-3"
                   >
                     <div className="flex justify-between items-start">
-                      <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">{entry.title}</h3>
+                      <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">{entry.title ?? 'Untitled'}</h3>
                       <span className="text-sm font-['Cinzel'] text-rusty-copper/70 flex-shrink-0 ml-2">
                         {format(new Date(entry.date), 'MMM dd')}
                       </span>
@@ -553,7 +801,7 @@ export function Dashboard() {
                     {entry.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
                         {entry.tags.map(tag => (
-                          <span key={tag} className="text-sm bg-rusty-copper/10 text-rusty-copper px-2 py-0.5 rounded-full border border-rusty-copper/20">
+                          <span key={tag} className="text-sm bg-rusty-copper/10 text-rusty-copper px-2 py-0.5 rounded-full border border-rusty-copper/20 font-[Caveat]">
                             #{tag}
                           </span>
                         ))}
@@ -569,10 +817,18 @@ export function Dashboard() {
             ))}
           </AnimatePresence>
           
-          {filteredEntries.length === 0 && (
+          {!isLoadingEntries && listEntries.length === 0 && (
             <div className="col-span-full text-center py-20">
-              <Wand2 className="w-16 h-16 text-faded-gold/50 mx-auto mb-4" />
-              <p className="text-2xl text-faded-gold/70 font-['Caveat']">No magical records found...</p>
+              <Wand2 className="w-16 h-16 text-faded-gold/50 mx-auto mb-4 block" />
+              <p className="text-2xl text-faded-gold/70 font-['Caveat'] pt-10 block">No magical records found...</p>
+            </div>
+          )}
+          
+          <div ref={sentinelRef} className="h-px w-full col-span-full" aria-hidden />
+          
+          {!hasMore && listEntries.length > 0 && (
+            <div className="col-span-full text-center py-8">
+              <p className="text-[#C9B896]/70 font-['STSong'] text-xl italic">记忆提取完毕</p>
             </div>
           )}
         </section>
@@ -606,13 +862,13 @@ export function Dashboard() {
                 </button>
                 
                 {(() => {
-                  const entry = entries.find(e => e.id === viewingEntryId);
+                  const entry = listEntries.find(e => e.id === viewingEntryId);
                   if (!entry) return null;
                   return (
                     <div className="flex flex-col gap-6 pt-2 min-h-full">
                       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-rusty-copper/30 pb-6">
                         <h2 className="text-4xl md:text-5xl font-['Cinzel'] font-bold text-vintage-burgundy leading-tight drop-shadow-sm">
-                          {entry.title}
+                          {entry.title ?? 'Untitled'}
                         </h2>
                         <div className="flex items-center gap-2 text-rusty-copper font-['Cinzel'] text-xl whitespace-nowrap">
                           <Calendar className="w-6 h-6" />
@@ -624,10 +880,10 @@ export function Dashboard() {
                         {entry.content}
                       </div>
 
-                      {entry.images && entry.images.length > 0 && (
+                      {(entry.imageUrls?.length ?? entry.images?.length ?? 0) > 0 && (
                         <div className="mt-2">
                           <ImagePreviewGallery
-                            images={entry.images.map(url => ({ id: url, url, loading: false }))}
+                            images={(entry.imageUrls ?? entry.images ?? []).map(url => ({ id: url, url, loading: false }))}
                             setImages={() => {}}
                             isEditing={false}
                             previewIndex={viewingPreviewIndex}
@@ -650,7 +906,7 @@ export function Dashboard() {
                             );
                           })()}
                           {entry.tags.map(tag => (
-                            <span key={tag} className="text-lg bg-rusty-copper/10 text-rusty-copper px-4 py-1 rounded-full border border-rusty-copper/20 shadow-sm">
+                            <span key={tag} className="text-lg bg-rusty-copper/10 text-rusty-copper px-4 py-1 rounded-full border border-rusty-copper/20 shadow-sm font-[Caveat]">
                               #{tag}
                             </span>
                           ))}
@@ -678,12 +934,14 @@ export function Dashboard() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => e.target === e.currentTarget && setIsNewBookModalOpen(false)}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               className="bg-[#2c2420] border-2 border-[#8B5A5A] rounded-xl shadow-2xl shadow-[#8B5A5A]/20 p-8 max-w-md w-full relative"
+              onClick={(e) => e.stopPropagation()}
             >
               <button 
                 onClick={() => setIsNewBookModalOpen(false)}
@@ -706,7 +964,7 @@ export function Dashboard() {
                     required
                     value={newBookName}
                     onChange={e => setNewBookName(e.target.value)}
-                    placeholder="e.g. Dark Arts Study, Potion Recipes..." 
+                    placeholder="e.g. Arcane Studies, Potion Recipes..." 
                     className="w-full bg-black/20 border border-[#8B5A5A]/50 rounded-lg px-4 py-3 text-[#EBE5DC] font-['Cinzel'] outline-none focus:border-[#C9B896] focus:ring-1 focus:ring-[#C9B896] placeholder:text-[#EBE5DC]/30 transition-all"
                   />
                 </div>
@@ -715,10 +973,10 @@ export function Dashboard() {
                   <label className="block font-['Cinzel'] text-[#C9B896] mb-3 font-bold">Leather Binding Dye</label>
                   <div className="flex gap-4">
                     {[
-                      { hex: '#5c2a2a', name: 'Gryffindor Crimson' },
-                      { hex: '#2c3e50', name: 'Ravenclaw Midnight' },
-                      { hex: '#1e3f20', name: 'Slytherin Emerald' },
-                      { hex: '#8a6b22', name: 'Hufflepuff Gold' },
+                      { hex: '#5c2a2a', name: 'Crimson Red' },
+                      { hex: '#2c3e50', name: 'Midnight Blue' },
+                      { hex: '#1e3f20', name: 'Forest Emerald' },
+                      { hex: '#8a6b22', name: 'Antique Gold' },
                       { hex: '#2c2420', name: 'Ancient Brown' }
                     ].map(color => (
                       <button
@@ -765,10 +1023,20 @@ export function Dashboard() {
                 <div className="pt-4 border-t border-[#8B5A5A]/30">
                   <button 
                     type="submit"
-                    className="w-full bg-gradient-to-r from-[#8B5A5A] to-[#5c2a2a] hover:from-[#9c6a6a] hover:to-[#6c3a3a] text-[#EBE5DC] font-['Cinzel'] font-bold text-lg py-3 rounded-lg border border-[#C9B896]/50 shadow-[0_0_15px_rgba(139,90,90,0.4)] transition-all hover:shadow-[0_0_20px_rgba(201,184,150,0.5)] flex items-center justify-center gap-2"
+                    disabled={isCreatingBook}
+                    className="w-full bg-gradient-to-r from-[#8B5A5A] to-[#5c2a2a] hover:from-[#9c6a6a] hover:to-[#6c3a3a] disabled:from-[#5c4a4a] disabled:to-[#4c3a3a] disabled:cursor-not-allowed text-[#EBE5DC] font-['Cinzel'] font-bold text-lg py-3 rounded-lg border border-[#C9B896]/50 shadow-[0_0_15px_rgba(139,90,90,0.4)] transition-all hover:shadow-[0_0_20px_rgba(201,184,150,0.5)] flex items-center justify-center gap-2"
                   >
-                    <BookOpen className="w-5 h-5" />
-                    Seal Binding
+                    {isCreatingBook ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        正在装订...
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen className="w-5 h-5" />
+                        Seal Binding
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

@@ -1,7 +1,8 @@
+<!-- 本文件是给Figma make初始设计前端界面使用的 -->
 # Project Guidelines: Magical Diary Web App
 
 ## 🎯 Project Overview
-**Goal:** Build a web-based diary application that immerses users in a magical, Harry Potter-inspired atmosphere. 
+**Goal:** Build a web-based diary application that immerses users in a magical, fantasy-inspired atmosphere. 
 
 ## 🎨 Visual Design Language (UI)
 **General Vibe:** Warm, magical, and inviting. The interface should feature a watercolor cartoon style with soft brush strokes, semi-transparent layers, and hand-drawn textures.
@@ -11,10 +12,10 @@
     - Vintage leather
     - Metal clasps and hardware
     - Magical glowing effects
-- **Embellishments:** Decorate the UI with Harry Potter IP-inspired magical elements (e.g., wands, stars, potions).
+- **Embellishments:** Decorate the UI with universal magical elements (e.g., wands, stars, potions).
 
 ## 🔤 Typography
-- **Headings / Titles:** Magical-style display font (e.g., *Harry P* or similar).
+- **Headings / Titles:** Magical-style display font (e.g., Caveat or similar elegant script).
 - **English Body Text:** Vintage Serif font to simulate an elegant, handwritten feel.
 - **Chinese Body Text:** Songti (宋体) to maintain a classic, literary aesthetic.
 

@@ -1,7 +1,8 @@
-import { Outlet } from 'react-router';
+'use client';
+
 import { motion } from 'motion/react';
 
-export default function Layout() {
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen relative font-serif text-[#383431] overflow-hidden">
       {/* Background Layer */}
@@ -37,7 +38,7 @@ export default function Layout() {
 
       {/* Main Content Area */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-4 py-8 md:py-12">
-        <Outlet />
+        {children}
       </div>
     </div>
   );

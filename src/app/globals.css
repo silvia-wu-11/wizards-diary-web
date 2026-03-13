@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;700&family=Caveat:wght@400;600&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+@import "tailwindcss";
+@source "../**/*.{js,ts,jsx,tsx}";
+
+@theme {
+  --color-castle-stone: #383431;
+  --color-rusty-copper: #4A4540;
+  --color-parchment-white: #EBE5DC;
+  --color-vintage-burgundy: #8B5A5A;
+  --color-faded-gold: #C9B896;
+
+  --font-display: 'Cinzel', 'Songti SC', 'STSong', 'SimSun', serif;
+  --font-body: 'Crimson Text', 'Songti SC', 'STSong', 'SimSun', serif;
+  --font-handwriting: 'Caveat', 'Kaiti SC', 'STKaiti', 'KaiTi', cursive;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-castle-stone);
+    color: var(--color-parchment-white);
+    font-family: var(--font-body);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .font-\[\'Cinzel\'\],
+  .font-\[\'Cinzel_Decorative\'\] {
+    font-family: var(--font-display) !important;
+  }
+  .font-\[\'Crimson_Text\'\] {
+    font-family: var(--font-body) !important;
+  }
+  .font-\[\'Caveat\'\] {
+    font-family: var(--font-handwriting) !important;
+  }
+
+  .magic-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-faded-gold) var(--color-rusty-copper);
+  }
+  .magic-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .magic-scrollbar::-webkit-scrollbar-track {
+    background: var(--color-rusty-copper);
+    border-radius: 4px;
+  }
+  .magic-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-faded-gold);
+    border-radius: 4px;
+    border: 2px solid var(--color-rusty-copper);
+  }
+
+  .magic-glow:hover {
+    box-shadow: 0 0 15px var(--color-faded-gold);
+  }
+
+  .bg-parchment {
+    background-image: url('https://images.unsplash.com/photo-1703104802264-44d670327f44?ixlib=rb-4.1.0&q=80&w=1080&auto=format&fit=crop');
+    background-size: cover;
+    background-blend-mode: soft-light;
+    background-color: var(--color-parchment-white);
+  }
+
+  .bg-leather {
+    background-image: url('https://images.unsplash.com/photo-1568059168173-ec9935fb19d0?ixlib=rb-4.1.0&q=80&w=1080&auto=format&fit=crop');
+    background-size: cover;
+    background-color: var(--color-rusty-copper);
+    background-blend-mode: multiply;
+  }
+
+  .parchment-shape {
+    border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+  }
+}
+
+@import 'tw-animate-css';

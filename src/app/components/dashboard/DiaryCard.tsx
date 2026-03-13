@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import { format } from "date-fns";
 import { DiaryEntry, Book } from "../../lib/storage";
 import { Parchment } from "../ui/Parchment";
-import { Link } from "react-router";
+import Link from "next/link";
 
 interface DiaryCardProps {
   entry: DiaryEntry;
@@ -11,7 +11,7 @@ interface DiaryCardProps {
 
 export function DiaryCard({ entry, book }: DiaryCardProps) {
   return (
-    <Link to={`/diary/${entry.id}`}>
+    <Link href={`/diary/${entry.id}`}>
       <motion.div
         whileHover={{ y: -5, scale: 1.02 }}
         initial={{ opacity: 0, y: 20 }}

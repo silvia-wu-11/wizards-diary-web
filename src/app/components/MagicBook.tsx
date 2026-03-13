@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { DiaryEntry } from '../store';
+import { DiaryEntry } from '../lib/store';
 import { format } from 'date-fns';
 import { X, ArrowLeft, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
-import { useNavigate } from 'react-router';
-
 interface MagicBookProps {
   entry: DiaryEntry;
   onClose: () => void;
@@ -13,7 +11,6 @@ interface MagicBookProps {
 
 export function MagicBook({ entry, onClose }: MagicBookProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
 
   // Variants for book opening animation
   const bookVariants = {

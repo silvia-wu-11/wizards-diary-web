@@ -93,7 +93,7 @@ export default function RegisterPage() {
         <p className="mt-2 text-sm text-parchment-white/80">加入魔法日记本</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" data-onboarding-target="step1-login">
         {formError && (
           <div
             role="alert"
@@ -177,7 +177,7 @@ export default function RegisterPage() {
           href="/login"
           className="text-faded-gold underline hover:no-underline"
         >
-          返回登录
+          去登录
         </Link>
       </p>
     </div>

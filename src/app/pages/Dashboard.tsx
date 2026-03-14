@@ -13,6 +13,7 @@ import { cn } from '../components/UI';
 import { MagicCalendar } from '../components/MagicCalendar';
 import { MagicCalendarRange } from '../components/MagicCalendarRange';
 import { AuthModal } from '../components/auth/AuthModal';
+import { useOnboardingContext } from '../components/onboarding/OnboardingContext';
 import { OldFriendButton } from '../components/OldFriendChat/OldFriendButton';
 import { OldFriendChatDrawer } from '../components/OldFriendChat/OldFriendChatDrawer';
 import { toast } from 'sonner';
@@ -89,9 +90,27 @@ export function Dashboard() {
   const [selectedFilterBook, setSelectedFilterBook] = useState<string | null>(null);
   const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialMode, setAuthModalInitialMode] = useState<'login' | 'register'>('login');
   const [isCreatingBook, setIsCreatingBook] = useState(false);
+  const onboardingCtx = useOnboardingContext();
   const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
+  const authSuccessRef = useRef(false);
+
+  // 注册新手引导 actions
+  useEffect(() => {
+    if (!onboardingCtx) return;
+    onboardingCtx.registerActions({
+      openAuthModal: (mode = 'login') => {
+        setAuthModalInitialMode(mode);
+        setIsAuthModalOpen(true);
+      },
+      openCreateBookModal: () => setIsNewBookModalOpen(true),
+      scrollToBookshelf: () => {
+        document.getElementById('bookshelf')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      },
+    });
+  }, [onboardingCtx]);
 
   // 分页列表状态
   const [listEntries, setListEntries] = useState<typeof entries>([]);
@@ -285,6 +304,7 @@ export function Dashboard() {
       });
       toast.success('日记本已创建');
       setSelectedBook(created.id);
+      onboardingCtx?.emitBookCreated();
       setNewBookName('');
       setNewBookColor('#5c2a2a');
       setNewBookType('potion');
@@ -303,7 +323,21 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-castle-stone via-[#2c2438] to-[#1a1420] text-parchment-white p-6 pb-20 font-sans relative overflow-hidden">
-      <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
+      <AuthModal
+        open={isAuthModalOpen}
+        onOpenChange={setIsAuthModalOpen}
+        initialMode={authModalInitialMode}
+        onSuccess={() => {
+          authSuccessRef.current = true;
+          onboardingCtx?.emitAuthComplete();
+        }}
+        onClose={() => {
+          if (!authSuccessRef.current) {
+            onboardingCtx?.emitAuthModalClosedWithoutSuccess?.();
+          }
+          authSuccessRef.current = false;
+        }}
+      />
       <div className="absolute inset-0 pointer-events-none opacity-30" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&auto=format&fit=crop&q=80')", backgroundSize: "cover", mixBlendMode: 'overlay', filter: 'hue-rotate(20deg) saturate(150%)' }} />
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6b4c7a] rounded-full blur-[150px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#8b6b45] rounded-full blur-[150px] opacity-20 pointer-events-none" />
@@ -315,6 +349,7 @@ export function Dashboard() {
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
+            data-onboarding-target="step1-login"
             className="absolute top-0 right-0 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
             aria-label={session ? '账户' : '登录或创建账号'}
           >
@@ -497,7 +532,7 @@ export function Dashboard() {
                           保存中...
                         </span>
                       ) : (
-                        'Seal Entry'
+                        'save'
                       )}
                     </MagicButton>
                   </div>
@@ -508,7 +543,7 @@ export function Dashboard() {
         </section>
 
         {/* Section 2: Bookshelf */}
-        <section>
+        <section id="bookshelf" data-onboarding-target="bookshelf">
           <div className="relative bg-gradient-to-b from-[#15100e] via-[#2a201b] to-[#1a1412] rounded-xl border-y-[16px] border-[#3b2f2f] border-x-8 shadow-[inset_0_20px_40px_rgba(0,0,0,0.9),inset_0_-10px_20px_rgba(0,0,0,0.5),0_15px_30px_rgba(0,0,0,0.6)] flex items-end gap-6 overflow-x-auto magic-scrollbar h-[260px] px-8 pb-3 pt-12">
             {/* Shelf highlight and inner shadow */}
             <div className="absolute inset-0 pointer-events-none border-b border-white/5 rounded-sm" />
@@ -517,6 +552,7 @@ export function Dashboard() {
               <motion.div 
                 key={book.id}
                 onClick={() => router.push(`/book/${book.id}`)}
+                data-onboarding-target={idx === books.length - 1 ? 'step3-first-book' : undefined}
                 whileHover={{ y: -10, rotate: -2, scale: 1.05 }}
                 className={cn(
                   "relative w-32 h-44 rounded-r-lg shadow-2xl cursor-pointer flex-shrink-0 flex items-center justify-center text-center p-2 border-l-8 border-[#1a1412] transition-colors group",
@@ -536,6 +572,7 @@ export function Dashboard() {
             <motion.div 
               whileHover={{ scale: 1.05 }}
               onClick={() => setIsNewBookModalOpen(true)}
+              data-onboarding-target="step2-add-book"
               className="w-32 h-44 rounded-r-lg border-2 border-dashed border-faded-gold/50 flex-shrink-0 flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors"
             >
               <span className="text-4xl text-faded-gold/50">+</span>
@@ -1034,7 +1071,7 @@ export function Dashboard() {
                     ) : (
                       <>
                         <BookOpen className="w-5 h-5" />
-                        Seal Binding
+                        密封装订
                       </>
                     )}
                   </button>

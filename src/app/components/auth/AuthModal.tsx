@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import {
@@ -20,12 +20,22 @@ import { register } from '@/app/actions/auth';
 interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 打开时优先展示的模式，用于新手引导等场景 */
+  initialMode?: 'login' | 'register';
+  /** 登录或注册成功时调用（在关闭弹窗前） */
+  onSuccess?: () => void;
+  /** 弹窗关闭时调用（含取消、成功等所有关闭场景） */
+  onClose?: () => void;
 }
 
-export function AuthModal({ open, onOpenChange }: AuthModalProps) {
+export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess, onClose }: AuthModalProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+
+  useEffect(() => {
+    if (open) setMode(initialMode);
+  }, [open, initialMode]);
 
   // Login state
   const [email, setEmail] = useState('');
@@ -50,7 +60,10 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) resetForm();
+    if (!next) {
+      resetForm();
+      onClose?.();
+    }
     onOpenChange(next);
   }
 
@@ -80,6 +93,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         return;
       }
       if (result?.ok) {
+        onSuccess?.();
         handleOpenChange(false);
         router.refresh();
       }
@@ -127,6 +141,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         else setFormError(result.error);
         return;
       }
+      onSuccess?.();
       // 注册成功后自动登录并跳转到首页
       const signInResult: any = await signIn('credentials', {
         email: parsed.data.email,
@@ -296,7 +311,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                   className="text-faded-gold underline hover:no-underline"
                   onClick={() => setMode('login')}
                 >
-                  返回登录
+                  去登录
                 </button>
               </>
             )}

@@ -9,7 +9,8 @@ function isAuthRoute(pathname: string) {
 }
 
 function isProtectedRoute(pathname: string) {
-  if (pathname === '/') return true;
+  // 首页允许未登录访问（用于新用户引导）
+  if (pathname === '/') return false;
   return PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
 }
 

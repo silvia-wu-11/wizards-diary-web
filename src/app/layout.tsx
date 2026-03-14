@@ -3,6 +3,8 @@ import './globals.css';
 import { AppShell } from './components/AppShell';
 import { Toaster } from './components/ui/sonner';
 import { AuthProvider } from './providers/AuthProvider';
+import { OnboardingContextProvider } from './components/onboarding/OnboardingContext';
+import { OnboardingProvider } from './components/onboarding/OnboardingProvider';
 
 export const metadata: Metadata = {
   title: "Wizard's Diary Web App",
@@ -18,7 +20,11 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          <AppShell>{children}</AppShell>
+          <AppShell>
+            <OnboardingContextProvider>
+              <OnboardingProvider>{children}</OnboardingProvider>
+            </OnboardingContextProvider>
+          </AppShell>
           <Toaster />
         </AuthProvider>
       </body>

@@ -3,6 +3,7 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db';
 import { uploadImages } from '@/lib/supabase/storage';
+import { toast } from "sonner";
 
 // ─────────────────────────────────────────────
 // 类型：与前端 store 对齐，date 为 ISO string
@@ -66,7 +67,9 @@ function bookFromPrisma(b: { id: string; name: string; color: string | null; typ
 async function requireAuth() {
   const session = await auth();
   if (!session?.user?.id) {
-    throw new Error('Unauthorized');
+    // throw new Error('Unauthorized');
+    toast.error('请先登录账号，才能查看日记');
+    return null;
   }
   return session.user.id;
 }
@@ -77,6 +80,12 @@ export async function getDiaryData(): Promise<{
   entries: DiaryEntryDto[];
 }> {
   const userId = await requireAuth();
+  if (!userId) {
+    return {
+      books: [],
+      entries: [],
+    };
+  }
 
   const [books, entries] = await Promise.all([
     prisma.diaryBook.findMany({

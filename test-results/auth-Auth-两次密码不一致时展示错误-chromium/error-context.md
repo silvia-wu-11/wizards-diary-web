@@ -32,7 +32,7 @@
       - button "创建账号" [ref=e28]
     - paragraph [ref=e29]:
       - text: 已有账号？
-      - link "返回登录" [ref=e30] [cursor=pointer]:
+      - link "去登录" [ref=e30] [cursor=pointer]:
         - /url: /login
   - region "Notifications alt+T"
 ```

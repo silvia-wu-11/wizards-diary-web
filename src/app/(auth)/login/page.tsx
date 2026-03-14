@@ -69,7 +69,7 @@ export default function LoginPage() {
         <p className="mt-2 text-sm text-parchment-white/80">登录以继续</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" data-onboarding-target="step1-login">
         {formError && (
           <div
             role="alert"

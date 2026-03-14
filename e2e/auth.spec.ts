@@ -47,9 +47,9 @@ test.describe('Auth', () => {
     await expect(page.getByRole('heading', { name: /创建账号/i })).toBeVisible();
   });
 
-  test('注册页返回登录链接', async ({ page }) => {
+  test('注册页去登录链接', async ({ page }) => {
     await page.goto('/register');
-    await page.getByRole('link', { name: /返回登录/i }).click();
+    await page.getByRole('link', { name: /去登录/i }).click();
     await expect(page).toHaveURL(/\/login/);
   });
 

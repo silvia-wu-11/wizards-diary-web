@@ -8,6 +8,7 @@ import {
   deleteBook as deleteBookAction,
   type CreateEntryInput,
   type CreateBookInput,
+  DiaryEntryDto,
 } from './actions/diary';
 
 // ─────────────────────────────────────────────
@@ -50,10 +51,10 @@ interface DiaryState {
     imageUrls?: string[];
     images?: string[];
   }) => Promise<DiaryEntry>;
-  addEntry: (entry: DiaryEntry) => Promise<void>;
+  addEntry: (entry: DiaryEntry) => Promise<DiaryEntryDto>;
   updateEntry: (id: string, updates: Partial<DiaryEntry>) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
-  addBook: (book: Omit<DiaryBook, 'id'>) => Promise<DiaryBook>;
+  addBook: (book: Omit<DiaryBook, "id">) => Promise<DiaryBook>;
   deleteBook: (bookId: string) => Promise<void>;
 }
 
@@ -123,6 +124,7 @@ export const useDiaryStore = create<DiaryState>((setState, getState) => ({
     setState({
       entries: [created, ...getState().entries],
     });
+    return created;
   },
 
   updateEntry: async (id, updates) => {

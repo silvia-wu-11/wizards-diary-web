@@ -24,7 +24,6 @@ interface OnboardingContextValue {
   actionsRef: React.MutableRefObject<OnboardingActions>;
   listenersRef: React.MutableRefObject<OnboardingListeners>;
   registerActions: (actions: OnboardingActions) => void;
-  registerOnAuthComplete: (fn: () => void) => void;
   registerOnBookCreated: (fn: () => void) => void;
   registerOnAuthModalClosedWithoutSuccess: (fn: () => void) => void;
   emitAuthComplete: () => void;
@@ -46,10 +45,6 @@ export function OnboardingContextProvider({ children }: { children: ReactNode })
 
   const registerActions = useCallback((actions: OnboardingActions) => {
     actionsRef.current = actions;
-  }, []);
-
-  const registerOnAuthComplete = useCallback((fn: () => void) => {
-    listenersRef.current.onAuthComplete = fn;
   }, []);
 
   const registerOnBookCreated = useCallback((fn: () => void) => {
@@ -78,7 +73,6 @@ export function OnboardingContextProvider({ children }: { children: ReactNode })
         actionsRef,
         listenersRef,
         registerActions,
-        registerOnAuthComplete,
         registerOnBookCreated,
         registerOnAuthModalClosedWithoutSuccess,
         emitAuthComplete,

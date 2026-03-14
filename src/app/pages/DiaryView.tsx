@@ -203,7 +203,7 @@ export function DiaryView({
     setIsSaving(true);
     try {
       if (isNewEntry) {
-        await addEntry({
+        const newEntry = await addEntry({
           id: uuidv4(),
           bookId: paramBookId!,
           title: editTitle.trim() || null,
@@ -214,7 +214,10 @@ export function DiaryView({
             .filter((img) => !img.loading && img.url)
             .map((img) => img.url),
         });
+        console.log('newEntry', newEntry);
+        
         toast.success("日记已保存");
+        router.replace(`/diary/${newEntry?.id}?open=1`);
       } else if (entry) {
         await updateEntry(entry.id, {
           title: editTitle.trim() || null,
@@ -225,8 +228,8 @@ export function DiaryView({
           tags: finalTags,
         });
         toast.success("日记已更新");
-        setIsEditing(false);
       }
+      setIsEditing(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "保存失败");
     } finally {

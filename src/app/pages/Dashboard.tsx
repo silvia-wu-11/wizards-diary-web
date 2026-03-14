@@ -291,6 +291,8 @@ export function Dashboard() {
     if (!newBookName.trim()) return;
 
     if (!session?.user) {
+      toast.error('请先登录账号，才能创建日记本');
+      setAuthModalInitialMode('register');
       setIsAuthModalOpen(true);
       return;
     }
@@ -338,12 +340,20 @@ export function Dashboard() {
           authSuccessRef.current = false;
         }}
       />
-      <div className="absolute inset-0 pointer-events-none opacity-30" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&auto=format&fit=crop&q=80')", backgroundSize: "cover", mixBlendMode: 'overlay', filter: 'hue-rotate(20deg) saturate(150%)' }} />
+      <div
+        className="absolute inset-0 pointer-events-none opacity-30"
+        style={{
+          backgroundImage:
+            "url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&auto=format&fit=crop&q=80')",
+          backgroundSize: "cover",
+          mixBlendMode: "overlay",
+          filter: "hue-rotate(20deg) saturate(150%)",
+        }}
+      />
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6b4c7a] rounded-full blur-[150px] opacity-20 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#8b6b45] rounded-full blur-[150px] opacity-20 pointer-events-none" />
-      
+
       <div className="max-w-6xl mx-auto space-y-12 relative z-10">
-        
         {/* Header */}
         <header className="relative text-center py-8 m-[0px]">
           <button
@@ -351,18 +361,22 @@ export function Dashboard() {
             onClick={() => setIsAuthModalOpen(true)}
             data-onboarding-target="step1-login"
             className="absolute top-0 right-0 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
-            aria-label={session ? '账户' : '登录或创建账号'}
-          >
+            aria-label={session ? "账户" : "登录或创建账号"}>
             <LogIn className="size-4" />
-            {session ? 'account' : 'login'}
+            {session ? session?.user?.email : "login"}
           </button>
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}>
             <h1 className="text-5xl md:text-6xl text-faded-gold flex items-center justify-center gap-4 mb-2 drop-shadow-[0_0_10px_rgba(201,184,150,0.5)]">
               <Star className="w-8 h-8 text-faded-gold animate-pulse" />
               Wizard's Diary
               <Wand2 className="w-8 h-8 text-faded-gold animate-bounce" />
             </h1>
-            <p className="text-faded-gold/80 italic font-['Caveat'] text-[40px]">Record your magical journey...</p>
+            <p className="text-faded-gold/80 italic font-['Caveat'] text-[40px]">
+              Record your magical journey...
+            </p>
           </motion.div>
         </header>
 
@@ -372,26 +386,29 @@ export function Dashboard() {
             <ParchmentBox className="p-8">
               <form onSubmit={handleSave} className="flex flex-col gap-4">
                 <div className="flex justify-between items-center border-b border-rusty-copper/30 pb-2 mb-2">
-                  <input 
-                    type="text" 
-                    placeholder="Title your entry..." 
+                  <input
+                    type="text"
+                    placeholder="Title your entry..."
                     className="bg-transparent border-none outline-none text-3xl font-['Cinzel'] text-rusty-copper w-full placeholder:text-rusty-copper/50 placeholder:font-['Cinzel']"
                     value={title}
-                    onChange={e => setTitle(e.target.value)}
+                    onChange={(e) => setTitle(e.target.value)}
                   />
                   <div className="relative flex items-center gap-2 text-rusty-copper font-['Cinzel'] text-lg whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => setIsEntryDatePickerOpen(true)}
-                      className="flex items-center gap-2 bg-transparent border-none outline-none text-rusty-copper font-['Cinzel'] cursor-pointer hover:bg-rusty-copper/10 px-2 py-1 rounded transition-colors"
-                    >
+                      className="flex items-center gap-2 bg-transparent border-none outline-none text-rusty-copper font-['Cinzel'] cursor-pointer hover:bg-rusty-copper/10 px-2 py-1 rounded transition-colors">
                       <Calendar className="w-5 h-5" />
-                      <span>{entryDate ? format(new Date(entryDate), 'MMM d, yyyy') : 'Select Date'}</span>
+                      <span>
+                        {entryDate
+                          ? format(new Date(entryDate), "MMM d, yyyy")
+                          : "Select Date"}
+                      </span>
                     </button>
-                    
+
                     <AnimatePresence>
                       {isEntryDatePickerOpen && (
-                        <MagicCalendar 
+                        <MagicCalendar
                           currentDate={entryDate || undefined}
                           entries={entries}
                           onSelectDate={(dateStr) => {
@@ -406,51 +423,52 @@ export function Dashboard() {
                     </AnimatePresence>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col gap-2 w-full">
                   <div className="bg-black/5 rounded-lg p-3 ring-1 ring-inset ring-rusty-copper/10 hover:ring-rusty-copper/30 transition-shadow">
-                    <textarea 
+                    <textarea
                       className="bg-transparent font-['Caveat'] border-none outline-none min-h-[150px] text-2xl resize-y text-castle-stone placeholder:text-rusty-copper/60 magic-scrollbar w-full"
                       placeholder="Dear diary, today I learned a new spell..."
                       value={content}
-                      onChange={e => setContent(e.target.value)}
+                      onChange={(e) => setContent(e.target.value)}
                     />
                   </div>
-                  <ImagePreviewGallery 
-                    images={images} 
-                    setImages={setImages} 
-                    isEditing={true} 
-                    previewIndex={previewIndex} 
-                    setPreviewIndex={setPreviewIndex} 
-                    layoutStyle="flex" 
+                  <ImagePreviewGallery
+                    images={images}
+                    setImages={setImages}
+                    isEditing={true}
+                    previewIndex={previewIndex}
+                    setPreviewIndex={setPreviewIndex}
+                    layoutStyle="flex"
                   />
                 </div>
-                
+
                 <div className="flex flex-col md:flex-row gap-4 items-end md:items-center justify-between border-t border-rusty-copper/20 m-[0px] px-[0px] pt-[16px] pb-[0px]">
                   <div className="flex-1 w-full flex items-center gap-3">
-                    <input 
-                      type="text" 
-                      placeholder="Tags (comma separated)..." 
+                    <input
+                      type="text"
+                      placeholder="Tags (comma separated)..."
                       className="bg-white/20 px-4 py-2 rounded-full border border-rusty-copper/30 outline-none font-['Caveat'] text-xl placeholder:text-rusty-copper/50 flex-1 focus:ring-2 focus:ring-faded-gold transition-all"
                       value={tagsStr}
-                      onChange={e => setTagsStr(e.target.value)}
+                      onChange={(e) => setTagsStr(e.target.value)}
                     />
                     {/* Custom Magical Book Dropdown */}
                     <div ref={bookDropdownRef} className="relative">
                       <button
                         type="button"
-                        onClick={() => setIsBookDropdownOpen(prev => !prev)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#C9B896]/60 outline-none cursor-pointer font-['Cinzel'] text-xl text-rusty-copper transition-all"
-                      >
+                        onClick={() => setIsBookDropdownOpen((prev) => !prev)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#C9B896]/60 outline-none cursor-pointer font-['Cinzel'] text-xl text-rusty-copper transition-all">
                         <BookOpen className="w-5 h-5 text-faded-gold flex-shrink-0" />
                         <span className="max-w-[120px] truncate">
-                          {books.find(b => b.id === selectedBook)?.name ?? 'Select Book'}
+                          {books.find((b) => b.id === selectedBook)?.name ??
+                            "Select Book"}
                         </span>
                         <motion.span
                           animate={{ rotate: isBookDropdownOpen ? 180 : 0 }}
                           transition={{ duration: 0.25 }}
-                          className="ml-1 text-faded-gold text-xs"
-                        >▼</motion.span>
+                          className="ml-1 text-faded-gold text-xs">
+                          ▼
+                        </motion.span>
                       </button>
 
                       <AnimatePresence>
@@ -463,54 +481,86 @@ export function Dashboard() {
                             className="absolute right-0 top-full mt-2 z-[200] min-w-[180px] rounded-xl overflow-hidden"
                             style={{
                               // background: 'linear-gradient(160deg, #EDE0C4 0%, #E2CFA0 60%, #D4B87A 100%)',
-                              background: '#eae5dd',
-                              border: '1px solid rgba(201,184,150,0.6)',
-                              boxShadow: 'inset 0 0 18px rgba(201,184,150,0.7), 0 0 20px rgba(201,184,150,0.4), 0 8px 24px rgba(0,0,0,0.35)',
-                            }}
-                          >
+                              background: "#eae5dd",
+                              border: "1px solid rgba(201,184,150,0.6)",
+                              boxShadow:
+                                "inset 0 0 18px rgba(201,184,150,0.7), 0 0 20px rgba(201,184,150,0.4), 0 8px 24px rgba(0,0,0,0.35)",
+                            }}>
                             {/* Decorative top shimmer */}
-                            <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, transparent, #C9B896, #FFE08A, #C9B896, transparent)' }} />
+                            <div
+                              className="h-[2px] w-full"
+                              style={{
+                                background:
+                                  "linear-gradient(90deg, transparent, #C9B896, #FFE08A, #C9B896, transparent)",
+                              }}
+                            />
                             <div className="py-2 px-1">
                               <div className="text-xs font-['Cinzel'] text-rusty-copper/60 px-3 pb-1 border-b border-rusty-copper/20 mb-1 tracking-widest uppercase">
                                 ✦ Diary Books ✦
                               </div>
-                              {books.map(b => (
+                              {books.map((b) => (
                                 <button
                                   key={b.id}
                                   type="button"
-                                  onClick={() => { setSelectedBook(b.id); setIsBookDropdownOpen(false); }}
+                                  onClick={() => {
+                                    setSelectedBook(b.id);
+                                    setIsBookDropdownOpen(false);
+                                  }}
                                   className="w-full text-left px-3 py-2 flex items-center gap-2 font-['Cinzel'] text-base transition-all rounded-lg"
                                   style={{
-                                    color: selectedBook === b.id ? '#5c2a2a' : '#7a4f2a',
-                                    background: selectedBook === b.id
-                                      ? 'rgba(201,184,150,0.5)'
-                                      : 'transparent',
-                                    textShadow: selectedBook === b.id ? '0 0 8px rgba(201,184,150,0.8)' : 'none',
+                                    color:
+                                      selectedBook === b.id
+                                        ? "#5c2a2a"
+                                        : "#7a4f2a",
+                                    background:
+                                      selectedBook === b.id
+                                        ? "rgba(201,184,150,0.5)"
+                                        : "transparent",
+                                    textShadow:
+                                      selectedBook === b.id
+                                        ? "0 0 8px rgba(201,184,150,0.8)"
+                                        : "none",
                                   }}
-                                  onMouseEnter={e => {
-                                    if (selectedBook !== b.id) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,184,150,0.3)';
+                                  onMouseEnter={(e) => {
+                                    if (selectedBook !== b.id)
+                                      (
+                                        e.currentTarget as HTMLButtonElement
+                                      ).style.background =
+                                        "rgba(201,184,150,0.3)";
                                   }}
-                                  onMouseLeave={e => {
-                                    if (selectedBook !== b.id) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                                  }}
-                                >
+                                  onMouseLeave={(e) => {
+                                    if (selectedBook !== b.id)
+                                      (
+                                        e.currentTarget as HTMLButtonElement
+                                      ).style.background = "transparent";
+                                  }}>
                                   <span
                                     className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-white/40"
-                                    style={{ backgroundColor: b.color || '#5c2a2a' }}
+                                    style={{
+                                      backgroundColor: b.color || "#5c2a2a",
+                                    }}
                                   />
                                   <span className="truncate">{b.name}</span>
-                                  {selectedBook === b.id && <Wand2 className="w-3.5 h-3.5 ml-auto text-faded-gold flex-shrink-0" />}
+                                  {selectedBook === b.id && (
+                                    <Wand2 className="w-3.5 h-3.5 ml-auto text-faded-gold flex-shrink-0" />
+                                  )}
                                 </button>
                               ))}
                             </div>
                             {/* Decorative bottom shimmer */}
-                            <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, transparent, #C9B896, #FFE08A, #C9B896, transparent)' }} />
+                            <div
+                              className="h-[2px] w-full"
+                              style={{
+                                background:
+                                  "linear-gradient(90deg, transparent, #C9B896, #FFE08A, #C9B896, transparent)",
+                              }}
+                            />
                           </motion.div>
                         )}
                       </AnimatePresence>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-3">
                     {images.length >= 5 ? (
                       <div className="p-2 text-rusty-copper/40 cursor-not-allowed group relative">
@@ -520,8 +570,16 @@ export function Dashboard() {
                         </div>
                       </div>
                     ) : (
-                      <label className="p-2 text-rusty-copper hover:text-vintage-burgundy transition-colors hover:scale-110 cursor-pointer" title="Upload Image (Max 5)">
-                        <input type="file" className="hidden" accept="image/*" multiple onChange={handleImageUpload} />
+                      <label
+                        className="p-2 text-rusty-copper hover:text-vintage-burgundy transition-colors hover:scale-110 cursor-pointer"
+                        title="Upload Image (Max 5)">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImageUpload}
+                        />
                         <ImageIcon className="w-7 h-7" />
                       </label>
                     )}
@@ -532,7 +590,7 @@ export function Dashboard() {
                           保存中...
                         </span>
                       ) : (
-                        'save'
+                        "save"
                       )}
                     </MagicButton>
                   </div>
@@ -547,34 +605,35 @@ export function Dashboard() {
           <div className="relative bg-gradient-to-b from-[#15100e] via-[#2a201b] to-[#1a1412] rounded-xl border-y-[16px] border-[#3b2f2f] border-x-8 shadow-[inset_0_20px_40px_rgba(0,0,0,0.9),inset_0_-10px_20px_rgba(0,0,0,0.5),0_15px_30px_rgba(0,0,0,0.6)] flex items-end gap-6 overflow-x-auto magic-scrollbar h-[260px] px-8 pb-3 pt-12">
             {/* Shelf highlight and inner shadow */}
             <div className="absolute inset-0 pointer-events-none border-b border-white/5 rounded-sm" />
-            
+
             {books.map((book, idx) => (
-              <motion.div 
+              <motion.div
                 key={book.id}
                 onClick={() => router.push(`/book/${book.id}`)}
-                data-onboarding-target={idx === books.length - 1 ? 'step3-first-book' : undefined}
+                data-onboarding-target={
+                  idx === books.length - 1 ? "step3-first-book" : undefined
+                }
                 whileHover={{ y: -10, rotate: -2, scale: 1.05 }}
                 className={cn(
                   "relative w-32 h-44 rounded-r-lg shadow-2xl cursor-pointer flex-shrink-0 flex items-center justify-center text-center p-2 border-l-8 border-[#1a1412] transition-colors group",
                 )}
-                style={{ backgroundColor: book.color || (idx % 2 === 0 ? "#5c2a2a" : "#2c3e50") }}
-              >
-                <div 
-                  className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-r-lg shadow-[0_0_20px_#C9B896_inset] z-20 p-[0px]" 
-                />
+                style={{
+                  backgroundColor:
+                    book.color || (idx % 2 === 0 ? "#5c2a2a" : "#2c3e50"),
+                }}>
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-r-lg shadow-[0_0_20px_#C9B896_inset] z-20 p-[0px]" />
                 <div className="absolute left-2 top-0 bottom-0 w-1 bg-white/10" />
                 <h3 className="font-['Cinzel'] text-faded-gold font-bold text-lg leading-tight z-10 drop-shadow-md relative pointer-events-none">
                   {book.name}
                 </h3>
               </motion.div>
             ))}
-            
-            <motion.div 
+
+            <motion.div
               whileHover={{ scale: 1.05 }}
               onClick={() => setIsNewBookModalOpen(true)}
               data-onboarding-target="step2-add-book"
-              className="w-32 h-44 rounded-r-lg border-2 border-dashed border-faded-gold/50 flex-shrink-0 flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors"
-            >
+              className="w-32 h-44 rounded-r-lg border-2 border-dashed border-faded-gold/50 flex-shrink-0 flex items-center justify-center cursor-pointer hover:bg-white/5 transition-colors">
               <span className="text-4xl text-faded-gold/50">+</span>
             </motion.div>
           </div>
@@ -583,24 +642,35 @@ export function Dashboard() {
         {/* Section 3: Sticky Toolbar */}
         <section className="sticky top-4 z-50">
           <div className="bg-[#EBE5DC] text-[#4A4540] p-4 rounded-lg shadow-[4px_4px_0_0_rgba(139,90,90,0.15)] border border-[#8B5A5A]/30 flex flex-col md:flex-row gap-4 items-center justify-between relative overflow-visible">
-            <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#4A4540 1px, transparent 1px)', backgroundSize: '16px 16px', overflow: 'visible' }}></div>
-            
+            <div
+              className="absolute inset-0 opacity-[0.04] pointer-events-none"
+              style={{
+                backgroundImage:
+                  "radial-gradient(#4A4540 1px, transparent 1px)",
+                backgroundSize: "16px 16px",
+                overflow: "visible",
+              }}></div>
+
             <div className="flex items-center gap-4 w-full md:w-auto relative z-10">
               <div className="relative">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setIsBookFilterDropdownOpen(false); setIsTagDropdownOpen(false); setIsDatePickerOpen(!isDatePickerOpen); }}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsBookFilterDropdownOpen(false);
+                    setIsTagDropdownOpen(false);
+                    setIsDatePickerOpen(!isDatePickerOpen);
+                  }}
                   onMouseDown={(e) => e.stopPropagation()}
-                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
-                >
+                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none">
                   <Calendar className="w-5 h-5 text-[#4A4540]" />
                   <span className="font-['Cinzel'] font-bold text-[#4A4540]">
                     {selectedFilterDateRange
-                      ? `${format(new Date(selectedFilterDateRange.from), 'MMM dd')} - ${format(new Date(selectedFilterDateRange.to), 'MMM dd, yyyy')}`
-                      : 'All Dates'}
+                      ? `${format(new Date(selectedFilterDateRange.from), "MMM dd")} - ${format(new Date(selectedFilterDateRange.to), "MMM dd, yyyy")}`
+                      : "All Dates"}
                   </span>
                   {selectedFilterDateRange && (
-                    <X 
-                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]" 
+                    <X
+                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedFilterDateRange(null);
@@ -609,10 +679,10 @@ export function Dashboard() {
                     />
                   )}
                 </button>
-                
+
                 <AnimatePresence>
                   {isDatePickerOpen && (
-                    <MagicCalendarRange 
+                    <MagicCalendarRange
                       range={selectedFilterDateRange ?? undefined}
                       onSelectRange={(from, to) => {
                         setSelectedFilterDateRange({ from, to });
@@ -628,17 +698,23 @@ export function Dashboard() {
 
               {/* Book Filter */}
               <div className="relative">
-                <button 
-                  onClick={() => { setIsDatePickerOpen(false); setIsTagDropdownOpen(false); setIsBookFilterDropdownOpen(!isBookFilterDropdownOpen); }}
-                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
-                >
+                <button
+                  onClick={() => {
+                    setIsDatePickerOpen(false);
+                    setIsTagDropdownOpen(false);
+                    setIsBookFilterDropdownOpen(!isBookFilterDropdownOpen);
+                  }}
+                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none">
                   <BookOpen className="w-5 h-5 text-[#4A4540]" />
                   <span className="font-['Cinzel'] font-bold text-[#4A4540]">
-                    {selectedFilterBook ? (books.find(b => b.id === selectedFilterBook)?.name ?? 'All Books') : 'All Books'}
+                    {selectedFilterBook
+                      ? (books.find((b) => b.id === selectedFilterBook)?.name ??
+                        "All Books")
+                      : "All Books"}
                   </span>
                   {selectedFilterBook && (
-                    <X 
-                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]" 
+                    <X
+                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedFilterBook(null);
@@ -650,18 +726,17 @@ export function Dashboard() {
 
                 <AnimatePresence>
                   {isBookFilterDropdownOpen && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute top-full mt-2 left-0 bg-[#EBE5DC] border border-[#8B5A5A]/30 rounded-lg shadow-xl p-3 z-[100] min-w-[200px] max-h-[300px] overflow-y-auto magic-scrollbar"
-                    >
+                      className="absolute top-full mt-2 left-0 bg-[#EBE5DC] border border-[#8B5A5A]/30 rounded-lg shadow-xl p-3 z-[100] min-w-[200px] max-h-[300px] overflow-y-auto magic-scrollbar">
                       <div className="text-sm font-['Cinzel'] text-[#4A4540]/70 mb-2 px-2 border-b border-[#8B5A5A]/20 pb-1">
                         Diary Books
                       </div>
                       {books.length > 0 ? (
                         <div className="flex flex-col gap-1">
-                          {books.map(book => (
+                          {books.map((book) => (
                             <button
                               key={book.id}
                               onClick={() => {
@@ -670,19 +745,24 @@ export function Dashboard() {
                               }}
                               className={cn(
                                 "text-left px-3 py-2 rounded-md transition-colors flex items-center justify-between gap-2",
-                                selectedFilterBook === book.id 
-                                  ? "bg-[#8B5A5A] text-[#EBE5DC]" 
-                                  : "hover:bg-white/50 text-[#4A4540]"
-                              )}
-                            >
+                                selectedFilterBook === book.id
+                                  ? "bg-[#8B5A5A] text-[#EBE5DC]"
+                                  : "hover:bg-white/50 text-[#4A4540]",
+                              )}>
                               <span className="flex items-center gap-2">
                                 <span
                                   className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-black/20"
-                                  style={{ backgroundColor: book.color || '#5c2a2a' }}
+                                  style={{
+                                    backgroundColor: book.color || "#5c2a2a",
+                                  }}
                                 />
-                                <span className="font-['Cinzel'] text-base">{book.name}</span>
+                                <span className="font-['Cinzel'] text-base">
+                                  {book.name}
+                                </span>
                               </span>
-                              {selectedFilterBook === book.id && <Wand2 className="w-4 h-4 flex-shrink-0" />}
+                              {selectedFilterBook === book.id && (
+                                <Wand2 className="w-4 h-4 flex-shrink-0" />
+                              )}
                             </button>
                           ))}
                         </div>
@@ -697,17 +777,20 @@ export function Dashboard() {
               </div>
 
               <div className="relative">
-                <button 
-                  onClick={() => { setIsDatePickerOpen(false); setIsBookFilterDropdownOpen(false); setIsTagDropdownOpen(!isTagDropdownOpen); }}
-                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none"
-                >
+                <button
+                  onClick={() => {
+                    setIsDatePickerOpen(false);
+                    setIsBookFilterDropdownOpen(false);
+                    setIsTagDropdownOpen(!isTagDropdownOpen);
+                  }}
+                  className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-md border border-[#4A4540]/30 hover:bg-white/80 transition-colors focus:ring-2 focus:ring-[#8B5A5A] outline-none">
                   <Filter className="w-5 h-5 text-[#4A4540]" />
                   <span className="font-['Cinzel'] font-bold text-[#4A4540]">
-                    {selectedTag ? `#${selectedTag}` : 'All Tags'}
+                    {selectedTag ? `#${selectedTag}` : "All Tags"}
                   </span>
                   {selectedTag && (
-                    <X 
-                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]" 
+                    <X
+                      className="w-4 h-4 ml-1 text-[#4A4540]/60 hover:text-[#4A4540]"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedTag(null);
@@ -716,21 +799,20 @@ export function Dashboard() {
                     />
                   )}
                 </button>
-                
+
                 <AnimatePresence>
                   {isTagDropdownOpen && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute top-full mt-2 left-0 bg-[#EBE5DC] border border-[#8B5A5A]/30 rounded-lg shadow-xl p-3 z-[100] min-w-[200px] max-h-[300px] overflow-y-auto magic-scrollbar"
-                    >
+                      className="absolute top-full mt-2 left-0 bg-[#EBE5DC] border border-[#8B5A5A]/30 rounded-lg shadow-xl p-3 z-[100] min-w-[200px] max-h-[300px] overflow-y-auto magic-scrollbar">
                       <div className="text-sm font-['Cinzel'] text-[#4A4540]/70 mb-2 px-2 border-b border-[#8B5A5A]/20 pb-1">
                         Magical Tags
                       </div>
                       {availableTags.length > 0 ? (
                         <div className="flex flex-col gap-1">
-                          {availableTags.map(tag => (
+                          {availableTags.map((tag) => (
                             <button
                               key={tag}
                               onClick={() => {
@@ -739,13 +821,16 @@ export function Dashboard() {
                               }}
                               className={cn(
                                 "text-left px-3 py-2 rounded-md transition-colors flex items-center justify-between",
-                                selectedTag === tag 
-                                  ? "bg-[#8B5A5A] text-[#EBE5DC]" 
-                                  : "hover:bg-white/50 text-[#4A4540]"
+                                selectedTag === tag
+                                  ? "bg-[#8B5A5A] text-[#EBE5DC]"
+                                  : "hover:bg-white/50 text-[#4A4540]",
+                              )}>
+                              <span className="font-['Caveat'] text-xl">
+                                #{tag}
+                              </span>
+                              {selectedTag === tag && (
+                                <Wand2 className="w-4 h-4" />
                               )}
-                            >
-                              <span className="font-['Caveat'] text-xl">#{tag}</span>
-                              {selectedTag === tag && <Wand2 className="w-4 h-4" />}
                             </button>
                           ))}
                         </div>
@@ -759,16 +844,16 @@ export function Dashboard() {
                 </AnimatePresence>
               </div>
             </div>
-            
+
             <div className="relative flex items-center gap-3 flex-1 min-w-0">
               <div className="relative w-full md:max-w-[280px] z-10">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#4A4540]/60" />
-                <input 
-                  type="text" 
-                  placeholder="Search the archives..." 
+                <input
+                  type="text"
+                  placeholder="Search the archives..."
                   className="w-full bg-white/50 border border-[#4A4540]/30 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-[#8B5A5A] text-xl font-['Caveat'] placeholder:text-[#4A4540]/50 transition-colors hover:bg-white/80"
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
               <OldFriendButton onClick={() => setIsOldFriendOpen(true)} />
@@ -785,7 +870,9 @@ export function Dashboard() {
                 dateFrom: selectedFilterDateRange?.from,
                 dateTo: selectedFilterDateRange?.to,
                 bookId: selectedFilterBook ?? undefined,
-                bookName: selectedFilterBook ? books.find((b) => b.id === selectedFilterBook)?.name : undefined,
+                bookName: selectedFilterBook
+                  ? books.find((b) => b.id === selectedFilterBook)?.name
+                  : undefined,
                 tag: selectedTag ?? undefined,
                 keyword: debouncedSearchQuery.trim() || undefined,
               },
@@ -796,7 +883,7 @@ export function Dashboard() {
                 date: e.date,
                 tags: e.tags,
               })),
-              source: 'dashboard',
+              source: "dashboard",
             } satisfies OldFriendContext
           }
         />
@@ -809,7 +896,7 @@ export function Dashboard() {
             </div>
           )}
           <AnimatePresence>
-            {listEntries.map(entry => (
+            {listEntries.map((entry) => (
               <motion.div
                 key={entry.id}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -817,34 +904,36 @@ export function Dashboard() {
                 exit={{ opacity: 0, scale: 0.9 }}
                 layout
                 layoutId={entry.id}
-                className="break-inside-avoid"
-              >
+                className="break-inside-avoid">
                 <ParchmentBox isInteractive>
-                  <div 
+                  <div
                     onClick={() => setViewingEntryId(entry.id)}
-                    className="flex flex-col gap-3"
-                  >
+                    className="flex flex-col gap-3">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">{entry.title ?? 'Untitled'}</h3>
+                      <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">
+                        {entry.title ?? "Untitled"}
+                      </h3>
                       <span className="text-sm font-['Cinzel'] text-rusty-copper/70 flex-shrink-0 ml-2">
-                        {format(new Date(entry.date), 'MMM dd')}
+                        {format(new Date(entry.date), "MMM dd")}
                       </span>
                     </div>
-                    
+
                     <p className="text-xl text-castle-stone/90 line-clamp-4 leading-relaxed">
                       {entry.content}
                     </p>
-                    
+
                     {entry.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {entry.tags.map(tag => (
-                          <span key={tag} className="text-sm bg-rusty-copper/10 text-rusty-copper px-2 py-0.5 rounded-full border border-rusty-copper/20 font-[Caveat]">
+                        {entry.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-sm bg-rusty-copper/10 text-rusty-copper px-2 py-0.5 rounded-full border border-rusty-copper/20 font-[Caveat]">
                             #{tag}
                           </span>
                         ))}
                       </div>
                     )}
-                    
+
                     <div className="mt-2 text-right">
                       <BookOpen className="w-5 h-5 text-faded-gold inline-block" />
                     </div>
@@ -853,34 +942,40 @@ export function Dashboard() {
               </motion.div>
             ))}
           </AnimatePresence>
-          
+
           {!isLoadingEntries && listEntries.length === 0 && (
             <div className="col-span-full text-center py-20">
               <Wand2 className="w-16 h-16 text-faded-gold/50 mx-auto mb-4 block" />
-              <p className="text-2xl text-faded-gold/70 font-['Caveat'] pt-10 block">No magical records found...</p>
+              <p className="text-2xl text-faded-gold/70 font-['Caveat'] pt-10 block">
+                No magical records found...
+              </p>
             </div>
           )}
-          
-          <div ref={sentinelRef} className="h-px w-full col-span-full" aria-hidden />
-          
+
+          <div
+            ref={sentinelRef}
+            className="h-px w-full col-span-full"
+            aria-hidden
+          />
+
           {!hasMore && listEntries.length > 0 && (
             <div className="col-span-full text-center py-8">
-              <p className="text-[#C9B896]/70 font-['STSong'] text-xl italic">记忆提取完毕</p>
+              <p className="text-[#C9B896]/70 font-['STSong'] text-xl italic">
+                记忆提取完毕
+              </p>
             </div>
           )}
         </section>
-
       </div>
 
       <AnimatePresence>
         {viewingEntryId && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-12"
-            onClick={() => setViewingEntryId(null)}
-          >
+            onClick={() => setViewingEntryId(null)}>
             <motion.div
               layoutId={viewingEntryId}
               initial={{ scale: 0.9, opacity: 0, y: 50 }}
@@ -888,39 +983,42 @@ export function Dashboard() {
               exit={{ scale: 0.9, opacity: 0, y: 50 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="max-w-4xl w-full max-h-[90vh] flex flex-col relative"
-              onClick={e => e.stopPropagation()}
-            >
+              onClick={(e) => e.stopPropagation()}>
               <ParchmentBox className="p-8 md:p-12 overflow-y-auto magic-scrollbar h-full w-full rounded-lg shadow-[0_0_50px_rgba(201,184,150,0.3)]">
-                <button 
+                <button
                   onClick={() => setViewingEntryId(null)}
-                  className="absolute -top-[18] right-0 text-rusty-copper/60 hover:text-vintage-burgundy transition-colors hover:scale-110 z-50 px-[8px] pt-[0px] pb-[8px]"
-                >
+                  className="absolute -top-[18] right-0 text-rusty-copper/60 hover:text-vintage-burgundy transition-colors hover:scale-110 z-50 px-[8px] pt-[0px] pb-[8px]">
                   <X className="w-8 h-8" />
                 </button>
-                
+
                 {(() => {
-                  const entry = listEntries.find(e => e.id === viewingEntryId);
+                  const entry = listEntries.find(
+                    (e) => e.id === viewingEntryId,
+                  );
                   if (!entry) return null;
                   return (
                     <div className="flex flex-col gap-6 pt-2 min-h-full">
                       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-rusty-copper/30 pb-6">
                         <h2 className="text-4xl md:text-5xl font-['Cinzel'] font-bold text-vintage-burgundy leading-tight drop-shadow-sm">
-                          {entry.title ?? 'Untitled'}
+                          {entry.title ?? "Untitled"}
                         </h2>
                         <div className="flex items-center gap-2 text-rusty-copper font-['Cinzel'] text-xl whitespace-nowrap">
                           <Calendar className="w-6 h-6" />
-                          {format(new Date(entry.date), 'MMMM dd, yyyy')}
+                          {format(new Date(entry.date), "MMMM dd, yyyy")}
                         </div>
                       </div>
-                      
+
                       <div className="text-2xl text-castle-stone/90 leading-relaxed font-sans whitespace-pre-wrap flex-1">
                         {entry.content}
                       </div>
 
-                      {(entry.imageUrls?.length ?? entry.images?.length ?? 0) > 0 && (
+                      {(entry.imageUrls?.length ?? entry.images?.length ?? 0) >
+                        0 && (
                         <div className="mt-2">
                           <ImagePreviewGallery
-                            images={(entry.imageUrls ?? entry.images ?? []).map(url => ({ id: url, url, loading: false }))}
+                            images={(entry.imageUrls ?? entry.images ?? []).map(
+                              (url) => ({ id: url, url, loading: false }),
+                            )}
                             setImages={() => {}}
                             isEditing={false}
                             previewIndex={viewingPreviewIndex}
@@ -929,27 +1027,32 @@ export function Dashboard() {
                           />
                         </div>
                       )}
-                      
+
                       {(entry.bookId || entry.tags.length > 0) && (
                         <div className="flex flex-wrap items-center gap-3 mt-8 pt-6 border-t border-rusty-copper/20">
-                          {entry.bookId && (() => {
-                            const book = books.find(b => b.id === entry.bookId);
-                            if (!book) return null;
-                            return (
-                              <span className="flex items-center gap-2 text-lg bg-vintage-burgundy/10 text-vintage-burgundy px-4 py-1 rounded-full border border-vintage-burgundy/20 shadow-sm font-['Cinzel'] font-bold">
-                                <BookOpen className="w-5 h-5" />
-                                {book.name}
-                              </span>
-                            );
-                          })()}
-                          {entry.tags.map(tag => (
-                            <span key={tag} className="text-lg bg-rusty-copper/10 text-rusty-copper px-4 py-1 rounded-full border border-rusty-copper/20 shadow-sm font-[Caveat]">
+                          {entry.bookId &&
+                            (() => {
+                              const book = books.find(
+                                (b) => b.id === entry.bookId,
+                              );
+                              if (!book) return null;
+                              return (
+                                <span className="flex items-center gap-2 text-lg bg-vintage-burgundy/10 text-vintage-burgundy px-4 py-1 rounded-full border border-vintage-burgundy/20 shadow-sm font-['Cinzel'] font-bold">
+                                  <BookOpen className="w-5 h-5" />
+                                  {book.name}
+                                </span>
+                              );
+                            })()}
+                          {entry.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="text-lg bg-rusty-copper/10 text-rusty-copper px-4 py-1 rounded-full border border-rusty-copper/20 shadow-sm font-[Caveat]">
                               #{tag}
                             </span>
                           ))}
                         </div>
                       )}
-                      
+
                       <div className="mt-8 text-center text-faded-gold/40 flex items-center justify-center gap-4">
                         <div className="h-px bg-faded-gold/20 flex-1"></div>
                         <Wand2 className="w-6 h-6" />
@@ -965,64 +1068,73 @@ export function Dashboard() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {isNewBookModalOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            exit={{ opacity: 0 }} 
+        {isNewBookModalOpen && !isAuthModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) => e.target === e.currentTarget && setIsNewBookModalOpen(false)}
-          >
+            onClick={(e) =>
+              e.target === e.currentTarget && setIsNewBookModalOpen(false)
+            }>
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               className="bg-[#2c2420] border-2 border-[#8B5A5A] rounded-xl shadow-2xl shadow-[#8B5A5A]/20 p-8 max-w-md w-full relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button 
+              onClick={(e) => e.stopPropagation()}>
+              <button
                 onClick={() => setIsNewBookModalOpen(false)}
-                className="absolute top-4 right-4 text-[#C9B896]/60 hover:text-[#C9B896] transition-colors"
-              >
+                className="absolute top-4 right-4 text-[#C9B896]/60 hover:text-[#C9B896] transition-colors">
                 <X className="w-6 h-6" />
               </button>
-              
+
               <div className="text-center mb-8">
                 <Wand2 className="w-10 h-10 text-[#C9B896] mx-auto mb-3" />
-                <h2 className="text-3xl font-['Cinzel'] text-[#C9B896] font-bold">Conjure a New Grimoire</h2>
-                <p className="text-[#C9B896]/70 font-['Caveat'] text-xl mt-2">Bind a new book to your collection</p>
+                <h2 className="text-3xl font-['Cinzel'] text-[#C9B896] font-bold">
+                  Conjure a New Grimoire
+                </h2>
+                <p className="text-[#C9B896]/70 font-['Caveat'] text-xl mt-2">
+                  Bind a new book to your collection
+                </p>
               </div>
 
               <form onSubmit={handleCreateBook} className="space-y-6">
                 <div>
-                  <label className="block font-['Cinzel'] text-[#C9B896] mb-2 font-bold">Title of the Grimoire *</label>
-                  <input 
-                    type="text" 
+                  <label className="block font-['Cinzel'] text-[#C9B896] mb-2 font-bold">
+                    Title of the Grimoire *
+                  </label>
+                  <input
+                    type="text"
                     required
                     value={newBookName}
-                    onChange={e => setNewBookName(e.target.value)}
-                    placeholder="e.g. Arcane Studies, Potion Recipes..." 
+                    onChange={(e) => setNewBookName(e.target.value)}
+                    placeholder="e.g. Arcane Studies, Potion Recipes..."
                     className="w-full bg-black/20 border border-[#8B5A5A]/50 rounded-lg px-4 py-3 text-[#EBE5DC] font-['Cinzel'] outline-none focus:border-[#C9B896] focus:ring-1 focus:ring-[#C9B896] placeholder:text-[#EBE5DC]/30 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-['Cinzel'] text-[#C9B896] mb-3 font-bold">Leather Binding Dye</label>
+                  <label className="block font-['Cinzel'] text-[#C9B896] mb-3 font-bold">
+                    Leather Binding Dye
+                  </label>
                   <div className="flex gap-4">
                     {[
-                      { hex: '#5c2a2a', name: 'Crimson Red' },
-                      { hex: '#2c3e50', name: 'Midnight Blue' },
-                      { hex: '#1e3f20', name: 'Forest Emerald' },
-                      { hex: '#8a6b22', name: 'Antique Gold' },
-                      { hex: '#2c2420', name: 'Ancient Brown' }
-                    ].map(color => (
+                      { hex: "#5c2a2a", name: "Crimson Red" },
+                      { hex: "#2c3e50", name: "Midnight Blue" },
+                      { hex: "#1e3f20", name: "Forest Emerald" },
+                      { hex: "#8a6b22", name: "Antique Gold" },
+                      { hex: "#2c2420", name: "Ancient Brown" },
+                    ].map((color) => (
                       <button
                         key={color.hex}
                         type="button"
                         onClick={() => setNewBookColor(color.hex)}
                         className={cn(
                           "w-10 h-10 rounded-full border-2 transition-all hover:scale-110 shadow-lg",
-                          newBookColor === color.hex ? "border-[#C9B896] scale-110 ring-2 ring-[#C9B896]/30" : "border-black/50"
+                          newBookColor === color.hex
+                            ? "border-[#C9B896] scale-110 ring-2 ring-[#C9B896]/30"
+                            : "border-black/50",
                         )}
                         style={{ backgroundColor: color.hex }}
                         title={color.name}
@@ -1032,25 +1144,26 @@ export function Dashboard() {
                 </div>
 
                 <div>
-                  <label className="block font-['Cinzel'] text-[#C9B896] mb-2 font-bold">Magical Discipline</label>
+                  <label className="block font-['Cinzel'] text-[#C9B896] mb-2 font-bold">
+                    Magical Discipline
+                  </label>
                   <div className="grid grid-cols-2 gap-3">
                     {[
-                      { id: 'spells', label: 'Spells & Charms' },
-                      { id: 'potion', label: 'Potions' },
-                      { id: 'creatures', label: 'Magical Creatures' },
-                      { id: 'history', label: 'History of Magic' }
-                    ].map(type => (
+                      { id: "spells", label: "Spells & Charms" },
+                      { id: "potion", label: "Potions" },
+                      { id: "creatures", label: "Magical Creatures" },
+                      { id: "history", label: "History of Magic" },
+                    ].map((type) => (
                       <button
                         key={type.id}
                         type="button"
                         onClick={() => setNewBookType(type.id)}
                         className={cn(
                           "px-4 py-2 rounded-lg font-['Cinzel'] text-sm transition-all border",
-                          newBookType === type.id 
-                            ? "bg-[#8B5A5A] border-[#C9B896] text-[#EBE5DC]" 
-                            : "bg-black/20 border-[#8B5A5A]/30 text-[#C9B896]/70 hover:bg-black/40"
-                        )}
-                      >
+                          newBookType === type.id
+                            ? "bg-[#8B5A5A] border-[#C9B896] text-[#EBE5DC]"
+                            : "bg-black/20 border-[#8B5A5A]/30 text-[#C9B896]/70 hover:bg-black/40",
+                        )}>
                         {type.label}
                       </button>
                     ))}
@@ -1058,11 +1171,10 @@ export function Dashboard() {
                 </div>
 
                 <div className="pt-4 border-t border-[#8B5A5A]/30">
-                  <button 
+                  <button
                     type="submit"
                     disabled={isCreatingBook}
-                    className="w-full bg-gradient-to-r from-[#8B5A5A] to-[#5c2a2a] hover:from-[#9c6a6a] hover:to-[#6c3a3a] disabled:from-[#5c4a4a] disabled:to-[#4c3a3a] disabled:cursor-not-allowed text-[#EBE5DC] font-['Cinzel'] font-bold text-lg py-3 rounded-lg border border-[#C9B896]/50 shadow-[0_0_15px_rgba(139,90,90,0.4)] transition-all hover:shadow-[0_0_20px_rgba(201,184,150,0.5)] flex items-center justify-center gap-2"
-                  >
+                    className="w-full bg-gradient-to-r from-[#8B5A5A] to-[#5c2a2a] hover:from-[#9c6a6a] hover:to-[#6c3a3a] disabled:from-[#5c4a4a] disabled:to-[#4c3a3a] disabled:cursor-not-allowed text-[#EBE5DC] font-['Cinzel'] font-bold text-lg py-3 rounded-lg border border-[#C9B896]/50 shadow-[0_0_15px_rgba(139,90,90,0.4)] transition-all hover:shadow-[0_0_20px_rgba(201,184,150,0.5)] flex items-center justify-center gap-2">
                     {isCreatingBook ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />

@@ -107,9 +107,14 @@ export async function getDiaryData(): Promise<{
 /** 创建日记：content 必填；bookId 缺省取第一个；date 缺省为当日 */
 export async function createEntry(input: CreateEntryInput): Promise<DiaryEntryDto> {
   const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
 
   const content = (input.content ?? '').trim();
   if (!content) {
+    toast.error('内容不能为空');
     throw new Error('内容不能为空');
   }
 
@@ -120,6 +125,7 @@ export async function createEntry(input: CreateEntryInput): Promise<DiaryEntryDt
       orderBy: { createdAt: 'asc' },
     });
     if (!first) {
+      toast.error('请先创建日记本');
       throw new Error('请先创建日记本');
     }
     bookId = first.id;
@@ -130,6 +136,7 @@ export async function createEntry(input: CreateEntryInput): Promise<DiaryEntryDt
     where: { id: bookId, userId },
   });
   if (!book) {
+    toast.error('日记本不存在或无权访问');
     throw new Error('日记本不存在或无权访问');
   }
 
@@ -164,11 +171,16 @@ export async function updateEntry(
   updates: Partial<Pick<CreateEntryInput, 'title' | 'content' | 'date' | 'tags' | 'imageUrls'>>
 ): Promise<DiaryEntryDto> {
   const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
 
   const existing = await prisma.diaryEntry.findFirst({
     where: { id, book: { userId } },
   });
   if (!existing) {
+    toast.error('日记不存在或无权访问');
     throw new Error('日记不存在或无权访问');
   }
 
@@ -181,7 +193,13 @@ export async function updateEntry(
     }
   }
 
-  const data: Record<string, unknown> = {};
+  const data: {
+    title?: string | null;
+    content?: string;
+    date?: Date;
+    tags?: string[];
+    imageUrls?: string[];
+  } = {};
   if (updates.title !== undefined) data.title = updates.title?.trim() || null;
   if (updates.content !== undefined) data.content = updates.content?.trim();
   if (updates.date !== undefined) data.date = new Date(updates.date);
@@ -189,6 +207,7 @@ export async function updateEntry(
   if (imageUrls !== undefined) data.imageUrls = imageUrls;
 
   if (data.content === '') {
+    toast.error('内容不能为空');
     throw new Error('内容不能为空');
   }
 
@@ -203,11 +222,16 @@ export async function updateEntry(
 /** 删除日记 */
 export async function deleteEntry(id: string): Promise<void> {
   const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
 
   const existing = await prisma.diaryEntry.findFirst({
     where: { id, book: { userId } },
   });
   if (!existing) {
+    toast.error('日记不存在或无权访问');
     throw new Error('日记不存在或无权访问');
   }
 
@@ -217,9 +241,14 @@ export async function deleteEntry(id: string): Promise<void> {
 /** 创建日记本 */
 export async function createBook(input: CreateBookInput): Promise<DiaryBookDto> {
   const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
 
   const name = (input.name ?? '').trim();
   if (!name) {
+    toast.error('名称不能为空');
     throw new Error('名称不能为空');
   }
 
@@ -227,6 +256,7 @@ export async function createBook(input: CreateBookInput): Promise<DiaryBookDto> 
     where: { userId, name },
   });
   if (existing) {
+    toast.error('已存在同名日记本，请使用其他名称');
     throw new Error('已存在同名日记本，请使用其他名称');
   }
 
@@ -245,11 +275,16 @@ export async function createBook(input: CreateBookInput): Promise<DiaryBookDto> 
 /** 删除日记本（级联删除其下日记） */
 export async function deleteBook(bookId: string): Promise<void> {
   const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
 
   const book = await prisma.diaryBook.findFirst({
     where: { id: bookId, userId },
   });
   if (!book) {
+    toast.error('日记本不存在或无权访问');
     throw new Error('日记本不存在或无权访问');
   }
 
@@ -277,6 +312,11 @@ export async function getEntriesPaginated(params: GetEntriesPaginatedParams): Pr
   hasMore: boolean;
 }> {
   const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
+
   const limit = params.limit ?? 30;
 
   const dateCond: { gte?: Date; lte?: Date } = {};
@@ -319,6 +359,10 @@ export async function getEntriesPaginated(params: GetEntriesPaginatedParams): Pr
 /** 获取当前用户所有日记的 tag 列表（用于筛选下拉） */
 export async function getTags(): Promise<string[]> {
   const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
 
   const entries = await prisma.diaryEntry.findMany({
     where: { book: { userId } },

@@ -3,20 +3,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useOnboardingContext } from './OnboardingContext';
+import { useDiaryStore } from '../../store';
+import { useRouter } from 'next/navigation';
 
 const STORAGE_KEY = 'wizards-diary-onboarding-completed';
-const STEP2_DELAY_MS = 1500;
+const STEP2_DELAY_MS = 1000;
 const STEP3_DELAY_MS = 1000;
 
 export type OnboardingStep = 1 | 2 | 3;
 
-function scrollToBookshelf() {
-  const el = document.getElementById('bookshelf') ?? document.querySelector('[data-onboarding-target="bookshelf"]');
-  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
 export function useOnboarding() {
-  const { data: session, status } = useSession();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const { books, entries, isLoaded } = useDiaryStore();
   const ctx = useOnboardingContext();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState<OnboardingStep>(1);
@@ -25,16 +24,36 @@ export function useOnboarding() {
   stepRef.current = step;
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const completed = localStorage.getItem(STORAGE_KEY);
-    if (completed === 'true') return;
+    if (typeof window === "undefined") return;
 
-    if (status === 'loading') return;
+    const completed = localStorage.getItem(STORAGE_KEY);
+    if (completed === "true") return;
+
+    if (!isLoaded) return;
+
+    // 检查用户是否已经使用过应用（有日记本、有日记、或已登录）
+    const hasBooks = books.length > 0;
+    const hasEntries = entries.length > 0;
+    // 如果已经创建过日记本、写过日记或已登录，不再展示新手引导
+    if (hasBooks && hasEntries) {
+      return;
+    }
+
+    const isLoggedIn = !!session;
+    if (!isLoggedIn) {
+      setStep(1);
+    } else if (!hasBooks) {
+      setStep(2);
+      step2ShownRef.current = true;
+      ctx?.actionsRef.current?.scrollToBookshelf?.();
+    } else if (!hasEntries) {
+      setStep(3);
+      ctx?.actionsRef.current?.scrollToBookshelf?.();
+    }
 
     setVisible(true);
-    setStep(session ? 2 : 1);
-    if (session) step2ShownRef.current = true;
-  }, [session, status]);
+
+  }, [session, books, entries, isLoaded]);
 
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -43,7 +62,6 @@ export function useOnboarding() {
     if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
     transitionTimerRef.current = setTimeout(() => {
       transitionTimerRef.current = null;
-      scrollToBookshelf();
       ctx?.actionsRef.current?.scrollToBookshelf?.();
       setStep(2);
       step2ShownRef.current = true;
@@ -60,12 +78,16 @@ export function useOnboarding() {
   const onNext = useCallback(() => {
     if (step === 1) {
       setVisible(false);
-      ctx?.actionsRef.current?.openAuthModal?.('register');
+      ctx?.actionsRef.current?.openAuthModal?.("register");
     } else if (step === 2) {
-      ctx?.actionsRef.current?.openCreateBookModal?.();
-    } else {
-      localStorage.setItem(STORAGE_KEY, 'true');
       setVisible(false);
+      ctx?.actionsRef.current?.openCreateBookModal?.();
+      localStorage.setItem(STORAGE_KEY, "2");
+    } else {
+      localStorage.setItem(STORAGE_KEY, "true");
+      setVisible(false);
+      // 跳转到日记本页面
+      router.push(`/book/${books[0].id}`);
     }
   }, [step, ctx]);
 
@@ -80,36 +102,13 @@ export function useOnboarding() {
 
   useEffect(() => {
     if (!ctx) return;
-    ctx.registerOnAuthComplete(() => {
-      setVisible(false);
-      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
-      transitionTimerRef.current = setTimeout(() => {
-        transitionTimerRef.current = null;
-        scrollToBookshelf();
-        ctx.actionsRef.current?.scrollToBookshelf?.();
-        setStep(2);
-        step2ShownRef.current = true;
-        setVisible(true);
-      }, STEP2_DELAY_MS);
-    });
     ctx.registerOnBookCreated(() => {
       setTimeout(() => {
         setStep(3);
         setVisible(true);
       }, STEP3_DELAY_MS);
     });
-    ctx.registerOnAuthModalClosedWithoutSuccess(() => {
-      if (stepRef.current === 1) setVisible(true);
-    });
   }, [ctx]);
-
-  useEffect(() => {
-    if (step === 2 && visible && !step2ShownRef.current) {
-      step2ShownRef.current = true;
-      scrollToBookshelf();
-      ctx?.actionsRef.current?.scrollToBookshelf?.();
-    }
-  }, [step, visible, ctx]);
 
   return {
     visible,

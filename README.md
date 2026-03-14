@@ -2,6 +2,11 @@
 
 AI native 的 Web 全栈日记应用，整体灵感来自魔法世界氛围。支持日记本管理、日记撰写、筛选搜索，以及基于日记上下文的 AI 对话（「老朋友」）。
 
+## 在线预览
+
+- **地址**：<https://wizards-diary-kvc3rjnbx-silvia11wu-9949s-projects.vercel.app?_vercel_share=GcjEROQHdGFLRQOcOGWzWnCm1hRqg4nd>
+- **说明**：部署在 Vercel，需使用梯子（代理）访问国外域名。
+
 ## 技术栈
 
 | 层级 | 技术 |

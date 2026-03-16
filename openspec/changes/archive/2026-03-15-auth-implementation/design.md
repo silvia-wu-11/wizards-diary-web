@@ -46,11 +46,15 @@
 |------|----------|----------|
 | `/login` | 公开 | 展示登录表单 |
 | `/register` | 公开 | 展示注册表单 |
-| `/` | 需登录 | 重定向至 `/login` |
+| `/` | 公开 | 展示首页（用于新用户引导，未登录时可通过弹窗登录/注册） |
 | `/diary/:id` | 需登录 | 重定向至 `/login` |
 | `/book/:bookId` | 需登录 | 重定向至 `/login` |
 
-**实现方式**：在 `middleware.ts` 中调用 `auth()`，未登录访问需鉴权路由时 `redirect('/login?from=...')`；已登录访问 `/login`、`/register` 时 `redirect('/')`。
+**实现方式**：在 `middleware.ts` 中调用 `auth()`，首页 `/` 允许未登录访问（用于新用户引导），其他需鉴权路由未登录时 `redirect('/login?from=...')`；已登录访问 `/login`、`/register` 时 `redirect('/')`。
+
+**前端交互**：除路由层面的保护外，各页面组件（Dashboard、DiaryView）中也实现了登录状态检查：
+- 保存日记、创建日记本、打开"老朋友"聊天等操作前检查 `session?.user`
+- 未登录时弹出 `AuthModal` 登录/注册弹窗，引导用户登录
 
 ---
 
@@ -128,13 +132,22 @@ await signOut({ redirectTo: '/login' });
 
 ### 6. Middleware
 
-- 使用 `export { auth as middleware }` 或自定义 matcher 保护 `/`、`/diary/*`、`/book/*`
-- 未登录 → `redirect('/login?from=' + pathname)`
+- 使用 `export { auth as middleware }` 或自定义 matcher 保护 `/diary/*`、`/book/*`
+- **首页 `/` 允许未登录访问**（用于新用户引导，未登录用户可浏览首页并通过弹窗登录/注册）
+- 未登录访问其他需鉴权路由 → `redirect('/login?from=' + pathname)`
 - 已登录访问 `/login`、`/register` → `redirect('/')`
 
 ### 7. 密码可见性
 
 - `PasswordInput` 组件：`type={showPassword ? 'text' : 'password'}`，按钮切换；图标用 `lucide-react` 的 `Eye` / `EyeOff`
+
+### 8. AuthModal 弹窗组件
+
+- `AuthModal` 组件：用于前端交互的登录/注册弹窗
+- 支持 `initialMode` 参数指定初始显示模式（'login' | 'register'）
+- 支持 `onSuccess` 回调用于登录/注册成功后的处理（如自动创建日记本）
+- 支持 `onClose` 回调用于弹窗关闭时的处理
+- 用于 Dashboard 和 DiaryView 中的登录态检查交互
 
 ---
 

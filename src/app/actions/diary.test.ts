@@ -195,8 +195,177 @@ describe('diary Server Actions', () => {
 
   describe('deleteBook', () => {
     it('日记本不存在或无权访问时抛出错误', async () => {
-      vi.mocked(prisma.diaryBook.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.diaryEntry.findFirst).mockResolvedValue(null);
       await expect(deleteBook(mockBookId)).rejects.toThrow('日记本不存在或无权访问');
+    });
+  });
+
+  describe('getEntriesPaginated', () => {
+    const mockEntries = Array.from({ length: 35 }, (_, i) => ({
+      id: `entry-${i}`,
+      bookId: mockBookId,
+      title: `Title ${i}`,
+      content: `Content ${i}`,
+      date: new Date(),
+      tags: i % 2 === 0 ? ['magic'] : ['daily'],
+      imageUrls: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    it('未登录时抛出 Unauthorized', async () => {
+      vi.mocked(auth).mockResolvedValue(null);
+      const { getEntriesPaginated } = await import('./diary');
+      await expect(getEntriesPaginated({})).rejects.toThrow('Unauthorized');
+    });
+
+    it('无筛选条件时返回分页数据，每页默认30条', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue(mockEntries.slice(0, 31) as never);
+      const { getEntriesPaginated } = await import('./diary');
+      const result = await getEntriesPaginated({});
+
+      expect(result.entries).toHaveLength(30);
+      expect(result.hasMore).toBe(true);
+      expect(result.nextCursor).toBe('entry-29');
+    });
+
+    it('hasMore=false 时 nextCursor 为 null', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue(mockEntries.slice(0, 10) as never);
+      const { getEntriesPaginated } = await import('./diary');
+      const result = await getEntriesPaginated({});
+
+      expect(result.entries).toHaveLength(10);
+      expect(result.hasMore).toBe(false);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it('按日期范围筛选', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      await getEntriesPaginated({
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+
+      expect(prisma.diaryEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            date: {
+              gte: new Date('2026-01-01T00:00:00.000Z'),
+              lte: new Date('2026-01-31T23:59:59.999Z'),
+            },
+          }),
+        })
+      );
+    });
+
+    it('按 tag 精确筛选', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      await getEntriesPaginated({ tag: 'magic' });
+
+      expect(prisma.diaryEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            tags: { has: 'magic' },
+          }),
+        })
+      );
+    });
+
+    it('按 keyword 模糊搜索 title 和 content', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      await getEntriesPaginated({ keyword: 'wizard' });
+
+      expect(prisma.diaryEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { title: { contains: 'wizard', mode: 'insensitive' } },
+              { content: { contains: 'wizard', mode: 'insensitive' } },
+            ],
+          }),
+        })
+      );
+    });
+
+    it('按 bookId 筛选', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      await getEntriesPaginated({ bookId: 'book-abc' });
+
+      expect(prisma.diaryEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            bookId: 'book-abc',
+          }),
+        })
+      );
+    });
+
+    it('支持组合筛选：日期+tag+keyword+bookId', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      await getEntriesPaginated({
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        tag: 'magic',
+        keyword: 'wizard',
+        bookId: 'book-abc',
+      });
+
+      expect(prisma.diaryEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            book: { userId: mockUserId },
+            date: {
+              gte: new Date('2026-01-01T00:00:00.000Z'),
+              lte: new Date('2026-01-31T23:59:59.999Z'),
+            },
+            bookId: 'book-abc',
+            tags: { has: 'magic' },
+            OR: [
+              { title: { contains: 'wizard', mode: 'insensitive' } },
+              { content: { contains: 'wizard', mode: 'insensitive' } },
+            ],
+          }),
+        })
+      );
+    });
+
+    it('使用自定义 limit', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      await getEntriesPaginated({ limit: 10 });
+
+      expect(prisma.diaryEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          take: 11,
+        })
+      );
+    });
+
+    it('使用 cursor 分页', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      await getEntriesPaginated({ cursor: 'entry-30' });
+
+      expect(prisma.diaryEntry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cursor: { id: 'entry-30' },
+          skip: 1,
+        })
+      );
+    });
+
+    it('返回 DTO 格式数据（不包含内部字段）', async () => {
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue([mockEntries[0]] as never);
+      const { getEntriesPaginated } = await import('./diary');
+      const result = await getEntriesPaginated({});
+
+      expect(result.entries[0]).not.toHaveProperty('createdAt');
+      expect(result.entries[0]).not.toHaveProperty('updatedAt');
     });
   });
 });

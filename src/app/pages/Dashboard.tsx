@@ -92,6 +92,7 @@ export function Dashboard() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalInitialMode, setAuthModalInitialMode] = useState<'login' | 'register'>('login');
   const [isCreatingBook, setIsCreatingBook] = useState(false);
+  const [pendingBookData, setPendingBookData] = useState<{ name: string; color: string; type: string } | null>(null);
   const onboardingCtx = useOnboardingContext();
   const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
@@ -264,6 +265,14 @@ export function Dashboard() {
       return;
     }
 
+    // 检查登录状态
+    if (!session?.user) {
+      toast.error('请先登录账号');
+      setAuthModalInitialMode('login');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsSaving(true);
     try {
       await saveEntry({
@@ -291,7 +300,11 @@ export function Dashboard() {
     if (!newBookName.trim()) return;
 
     if (!session?.user) {
-      toast.error('请先登录账号，才能创建日记本');
+      setPendingBookData({
+        name: newBookName.trim(),
+        color: newBookColor,
+        type: newBookType
+      });
       setAuthModalInitialMode('register');
       setIsAuthModalOpen(true);
       return;
@@ -314,6 +327,12 @@ export function Dashboard() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '创建失败';
       if (msg === 'Unauthorized' || msg.includes('未登录')) {
+        setPendingBookData({
+          name: newBookName.trim(),
+          color: newBookColor,
+          type: newBookType
+        });
+        setAuthModalInitialMode('register');
         setIsAuthModalOpen(true);
       } else {
         toast.error(msg);
@@ -329,13 +348,38 @@ export function Dashboard() {
         open={isAuthModalOpen}
         onOpenChange={setIsAuthModalOpen}
         initialMode={authModalInitialMode}
-        onSuccess={() => {
+        onSuccess={async () => {
           authSuccessRef.current = true;
           onboardingCtx?.emitAuthComplete();
+
+          // 如果有待创建的日记本数据，自动创建
+          if (pendingBookData && authModalInitialMode === 'register') {
+            setIsCreatingBook(true);
+            try {
+              const created = await addBook(pendingBookData);
+              toast.success('日记本已创建');
+              setSelectedBook(created.id);
+              onboardingCtx?.emitBookCreated();
+              setNewBookName('');
+              setNewBookColor('#5c2a2a');
+              setNewBookType('potion');
+              setIsNewBookModalOpen(false);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : '创建失败';
+              toast.error(msg);
+            } finally {
+              setIsCreatingBook(false);
+              setPendingBookData(null);
+            }
+          }
         }}
         onClose={() => {
           if (!authSuccessRef.current) {
             onboardingCtx?.emitAuthModalClosedWithoutSuccess?.();
+            // 如果注册失败或取消创建，清除待创建数据
+            if (authModalInitialMode === 'register') {
+              setPendingBookData(null);
+            }
           }
           authSuccessRef.current = false;
         }}
@@ -856,7 +900,15 @@ export function Dashboard() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <OldFriendButton onClick={() => setIsOldFriendOpen(true)} />
+              <OldFriendButton onClick={() => {
+                if (!session?.user) {
+                  toast.error('请先登录账号');
+                  setAuthModalInitialMode('login');
+                  setIsAuthModalOpen(true);
+                  return;
+                }
+                setIsOldFriendOpen(true);
+              }} />
             </div>
           </div>
         </section>

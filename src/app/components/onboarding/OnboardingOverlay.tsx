@@ -30,7 +30,7 @@ const STEP_CONFIG: Record<
   3: {
     title: '写下第一篇日记',
     description: '点击刚刚创建的日记本打开它，在日记本内写下你的第一篇日记',
-    nextLabel: '完成',
+    nextLabel: '打开日记本',
   },
 };
 

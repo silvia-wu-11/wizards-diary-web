@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 import { motion, AnimatePresence } from "motion/react";
+import { useSession } from "next-auth/react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -22,6 +23,7 @@ import {
   Plus,
   Flame,
 } from "lucide-react";
+import { AuthModal } from "../components/auth/AuthModal";
 import {
   format,
   startOfMonth,
@@ -92,6 +94,7 @@ export function DiaryView({
   initialFocusContent?: boolean;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const {
     entries,
     deleteEntry,
@@ -103,6 +106,7 @@ export function DiaryView({
   } = useDiaryStore();
 
   const [isOpen, setIsOpen] = useState(initialOpen);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isHoveringCover, setIsHoveringCover] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -200,6 +204,13 @@ export function DiaryView({
       setTagInput("");
     }
 
+    // 检查登录状态
+    if (!session?.user) {
+      toast.error("请先登录账号");
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (isNewEntry) {
@@ -215,7 +226,7 @@ export function DiaryView({
             .map((img) => img.url),
         });
         console.log('newEntry', newEntry);
-        
+
         toast.success("日记已保存");
         router.replace(`/diary/${newEntry?.id}?open=1`);
       } else if (entry) {
@@ -414,7 +425,14 @@ export function DiaryView({
     : entry!.date;
 
   return (
-    <div className="min-h-screen bg-[#2c2420] text-parchment-white flex flex-col font-sans overflow-hidden relative">
+    <>
+      <AuthModal
+        open={isAuthModalOpen}
+        onOpenChange={setIsAuthModalOpen}
+        initialMode="login"
+        onClose={() => {}}
+      />
+      <div className="min-h-screen bg-[#2c2420] text-parchment-white flex flex-col font-sans overflow-hidden relative">
       <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&q=80')] bg-cover opacity-10 mix-blend-overlay pointer-events-none" />
 
       {/* Top Navigation */}
@@ -925,7 +943,14 @@ export function DiaryView({
             <ActionButton
               icon={<MessageCircle className="w-5 h-5" />}
               label="老朋友"
-              onClick={() => setIsOldFriendOpen(true)}
+              onClick={() => {
+                if (!session?.user) {
+                  toast.error("请先登录账号");
+                  setIsAuthModalOpen(true);
+                  return;
+                }
+                setIsOldFriendOpen(true);
+              }}
             />
           )}
           <ActionButton
@@ -1193,6 +1218,7 @@ export function DiaryView({
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 }
 

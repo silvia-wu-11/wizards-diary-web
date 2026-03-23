@@ -21,7 +21,10 @@ export function useOnboarding() {
   const [step, setStep] = useState<OnboardingStep>(1);
   const stepRef = useRef(step);
   const step2ShownRef = useRef(false);
-  stepRef.current = step;
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -30,6 +33,7 @@ export function useOnboarding() {
     if (completed === "true") return;
 
     if (!isLoaded || status === 'loading') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisible(false);
       return;
     }
@@ -89,10 +93,12 @@ export function useOnboarding() {
     } else {
       localStorage.setItem(STORAGE_KEY, "true");
       setVisible(false);
-      // 跳转到日记本页面
-      router.push(`/book/${books[0].id}`);
+      const bookId = books[0]?.id;
+      if (bookId) {
+        router.push(`/book/${bookId}`);
+      }
     }
-  }, [step, ctx]);
+  }, [step, ctx, books, router]);
 
   const onCancel = useCallback(() => {
     if (step === 1) {

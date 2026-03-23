@@ -12,7 +12,6 @@ import {
   MessageCircle,
   Search,
   Trash2,
-  Share2,
   ChevronLeft,
   ChevronRight,
   Book,
@@ -26,13 +25,6 @@ import {
 import { AuthModal } from "../components/auth/AuthModal";
 import {
   format,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameDay,
-  addMonths,
-  subMonths,
-  getDay,
 } from "date-fns";
 import { useDiaryStore, type DiaryEntry } from "../store";
 import { cn } from "../components/UI";
@@ -168,7 +160,7 @@ export function DiaryView({
               : img,
           ),
         );
-      } catch (err) {
+      } catch {
         setImages((prev) => prev.filter((img) => img.id !== id));
       }
     }

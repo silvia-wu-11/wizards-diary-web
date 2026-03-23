@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ImagePreviewGallery, DiaryImage } from '../components/ImagePreviewGallery';
-import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, ChevronLeft, ChevronRight, Loader2, LogIn } from 'lucide-react';
+import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, Loader2, LogIn } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDiaryStore } from '../store';
@@ -250,8 +250,8 @@ export function Dashboard() {
       try {
         const compressedUrl = await compressImage(file, 2);
         setImages(prev => prev.map(img => img.id === id ? { ...img, url: compressedUrl, loading: false } : img));
-      } catch (err) {
-        setImages(prev => prev.filter(img => img.id !== id));
+      } catch {
+        setImages(prev => prev.filter(img => img.id === id));
       }
     }
     e.target.value = '';
@@ -415,7 +415,7 @@ export function Dashboard() {
             transition={{ duration: 0.8 }}>
             <h1 className="text-5xl md:text-6xl text-faded-gold flex items-center justify-center gap-4 mb-2 drop-shadow-[0_0_10px_rgba(201,184,150,0.5)]">
               <Star className="w-8 h-8 text-faded-gold animate-pulse" />
-              Wizard's Diary
+              Wizard&apos;s Diary
               <Wand2 className="w-8 h-8 text-faded-gold animate-bounce" />
             </h1>
             <p className="text-faded-gold/80 italic font-['Caveat'] text-[40px]">

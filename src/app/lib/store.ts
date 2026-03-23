@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface DiaryEntry {
@@ -46,19 +46,21 @@ const MOCK_ENTRIES: DiaryEntry[] = [
 ];
 
 export function useDiaryStore() {
-  const [entries, setEntries] = useState<DiaryEntry[]>([]);
-  const [books, setBooks] = useState<DiaryBook[]>(DEFAULT_BOOKS);
-  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const storedEntries = localStorage.getItem('wizard-diary-entries');
-    if (storedEntries) {
-      setEntries(JSON.parse(storedEntries));
-    } else {
-      setEntries(MOCK_ENTRIES);
+  const [entries, setEntries] = useState<DiaryEntry[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const storedEntries = localStorage.getItem('wizard-diary-entries');
+      if (storedEntries) {
+        return JSON.parse(storedEntries);
+      }
       localStorage.setItem('wizard-diary-entries', JSON.stringify(MOCK_ENTRIES));
+      return MOCK_ENTRIES;
+    } catch {
+      return [];
     }
-  }, []);
+  });
+  const [books] = useState<DiaryBook[]>(DEFAULT_BOOKS);
+  const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
 
   const addEntry = (entry: Omit<DiaryEntry, 'id' | 'createdAt'>) => {
     const newEntry: DiaryEntry = {

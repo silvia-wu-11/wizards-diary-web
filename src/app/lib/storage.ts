@@ -59,7 +59,7 @@ export const getEntries = (): DiaryEntry[] => {
     localStorage.setItem(STORAGE_KEY_DIARIES, JSON.stringify(INITIAL_ENTRIES));
     return INITIAL_ENTRIES;
   }
-  return JSON.parse(stored).map((e: any) => ({
+  return JSON.parse(stored).map((e: DiaryEntry) => ({
     ...e,
     // Ensure dates are strings or Date objects as needed, keeping as ISO strings for storage
   }));

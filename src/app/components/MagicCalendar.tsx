@@ -4,9 +4,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, getDay } from 'date-fns';
 import { cn } from './UI';
 
+interface CalendarEntry {
+  id: string;
+  date: string;
+  title?: string | null;
+}
+
 export interface MagicCalendarProps {
-  currentDate?: string; // e.g. '2023-10-05' or valid Date string
-  entries?: any[]; // Array of entries to show dots
+  currentDate?: string;
+  entries?: CalendarEntry[];
   onSelectDate: (dateStr: string, entryId?: string) => void;
   onClose?: () => void;
   title?: string;

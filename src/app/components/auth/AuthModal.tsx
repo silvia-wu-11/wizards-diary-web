@@ -145,6 +145,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
       }
       onSuccess?.();
       // 注册成功后自动登录并跳转到首页
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signInResult: any = await signIn('credentials', {
         email: parsed.data.email,
         password: parsed.data.password,

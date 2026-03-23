@@ -14,7 +14,7 @@ export type OnboardingStep = 1 | 2 | 3;
 
 export function useOnboarding() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { books, entries, isLoaded } = useDiaryStore();
   const ctx = useOnboardingContext();
   const [visible, setVisible] = useState(false);
@@ -29,7 +29,10 @@ export function useOnboarding() {
     const completed = localStorage.getItem(STORAGE_KEY);
     if (completed === "true") return;
 
-    if (!isLoaded) return;
+    if (!isLoaded || status === 'loading') {
+      setVisible(false);
+      return;
+    }
 
     // 检查用户是否已经使用过应用（有日记本、有日记、或已登录）
     const hasBooks = books.length > 0;
@@ -53,7 +56,7 @@ export function useOnboarding() {
 
     setVisible(true);
 
-  }, [session, books, entries, isLoaded]);
+  }, [session, status, books, entries, isLoaded, ctx]);
 
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

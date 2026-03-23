@@ -66,7 +66,7 @@ export const useDiaryStore = create<DiaryState>((setState, getState) => ({
 
   loadData: async () => {
     try {
-      setState({ loadError: null });
+      setState({ loadError: null, isLoaded: false });
       const data = await getDiaryData();
       setState({
         books: data.books,

@@ -10,6 +10,7 @@ import { Label } from '@/app/components/ui/label';
 import { PasswordInput } from '@/app/components/auth/PasswordInput';
 import { z } from 'zod';
 import { signInSchema } from '@/lib/auth/validators';
+import { useDiaryStore } from '@/app/store';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,6 +51,7 @@ export default function LoginPage() {
         return;
       }
       if (result?.ok) {
+        useDiaryStore.setState({ isLoaded: false });
         router.push(from);
         router.refresh();
       }

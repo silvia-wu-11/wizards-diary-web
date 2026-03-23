@@ -11,6 +11,7 @@ import { PasswordInput } from '@/app/components/auth/PasswordInput';
 import { register } from '@/app/actions/auth';
 import { z } from 'zod';
 import { registerSchema } from '@/lib/auth/validators';
+import { useDiaryStore } from '@/app/store';
 
 export default function RegisterPage() {
   const searchParams = useSearchParams();
@@ -74,6 +75,9 @@ export default function RegisterPage() {
         redirect: true,
       });
       console.log('signInResult',signInResult);
+      if (signInResult?.ok) {
+        useDiaryStore.setState({ isLoaded: false });
+      }
       if (signInResult?.error) {
         setFormError('账号已创建，请手动登录');
       }

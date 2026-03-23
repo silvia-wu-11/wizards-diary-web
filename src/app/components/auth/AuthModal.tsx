@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn, signOut, useSession } from 'next-auth/react';
+import { useDiaryStore } from '@/app/store';
 import {
   Dialog,
   DialogContent,
@@ -93,6 +94,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
         return;
       }
       if (result?.ok) {
+        useDiaryStore.setState({ isLoaded: false });
         onSuccess?.();
         handleOpenChange(false);
         router.refresh();
@@ -150,6 +152,9 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
         redirect: true,
       });
       console.log('signInResult',signInResult);
+      if (signInResult?.ok) {
+        useDiaryStore.setState({ isLoaded: false });
+      }
       if (signInResult?.error) {
         setFormError('账号已创建，请手动登录');
       }
@@ -180,6 +185,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
                 variant="outline"
                 className="w-full border-rusty-copper text-faded-gold hover:bg-rusty-copper/30"
                 onClick={() => {
+                  useDiaryStore.setState({ isLoaded: false });
                   signOut({ callbackUrl: '/login' });
                   handleOpenChange(false);
                   router.refresh();

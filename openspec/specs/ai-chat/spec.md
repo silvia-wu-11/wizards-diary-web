@@ -48,6 +48,52 @@
 
 ---
 
+### Requirement: 对话框打开时，立即使用首轮请求注入人设与上下文
+系统 SHALL 在用户打开「老朋友」对话框时，立即发起一次将人设（system prompt）与日记上下文拼入 `input` 的请求；后续请求不再传递人设，仅传当前用户输入。
+
+#### Scenario: 首次打开对话框，人设注入 input
+- GIVEN 用户点击「老朋友」按钮
+- WHEN 对话框展开
+- THEN 系统立即发起一次请求，将 system prompt 与日记上下文作为前缀拼入 `input`（格式：`{system_prompt}\n\n用户: {input}`）
+
+#### Scenario: 多次对话复用上下文
+- GIVEN 用户已打开对话框并完成至少一次对话
+- AND 火山方舟 Responses API 已维护上下文
+- WHEN 用户继续发送新消息
+- THEN 系统仅传入当前用户输入（`input`）
+- AND 请求中携带上一轮响应的 `previous_response_id`
+
+---
+
+### Requirement: 后续每轮对话通过 previous_response_id 串联上下文
+系统 SHALL 在每次对话请求中携带上一轮响应的 `previous_response_id`，由火山方舟 Responses API 维护多轮对话的上下文，无需前端维护对话历史。
+
+#### Scenario: 正常多轮对话
+- GIVEN 用户已完成 N 轮对话
+- WHEN 用户发送第 N+1 轮消息
+- THEN 系统传入 `previous_response_id` 为第 N 轮的响应 ID
+- AND 火山方舟基于 Session 上下文自动关联历史对话
+
+#### Scenario: 跨 Session 对话（关闭抽屉后重新打开）
+- GIVEN 用户关闭「老朋友」对话框后再次打开
+- WHEN 对话框重新展开
+- THEN 系统发起新的请求，重新注入人设与上下文
+- AND 新请求与之前对话无上下文关联
+
+---
+
+### Requirement: 用户输入即为本轮请求的 input
+系统 SHALL 在后续对话请求中，将用户在输入框中输入的内容作为 `input` 参数传递，不再发送或维护对话历史。
+
+#### Scenario: 后续对话仅传当前输入
+- GIVEN 用户已展开 AI 对话框
+- AND 前置上下文已通过 Session 缓存存储
+- WHEN 用户输入「你觉得我最近状态如何？」并发送
+- THEN 系统仅将「你觉得我最近状态如何？」作为 `input` 传入
+- AND 不再发送历史对话消息
+
+---
+
 ### Requirement: 对话框初始由「老朋友」给出引导性问题或打招呼
 系统 SHALL 在对话框展开时，由 AI（老朋友）主动发送一条或多条初始消息，内容为引导性问题或简单打招呼。
 
@@ -56,7 +102,7 @@
 - WHEN 对话框展开
 - THEN 系统展示「老朋友」的初始消息
 - AND 初始消息为引导性问题（如「最近有什么想聊聊的吗？」）或简单打招呼（如「好久不见，今天想聊点什么？」）
-- AND 初始消息由云端大模型基于前置上下文生成，或使用预设模板
+- AND 初始消息由云端大模型基于首次请求注入的人设与上下文生成
 
 ---
 

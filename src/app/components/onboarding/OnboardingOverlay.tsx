@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '../ui/button';
-import { cn } from '../ui/utils';
 import type { OnboardingStep } from './useOnboarding';
 
 const TARGET_SELECTORS: Record<OnboardingStep, string> = {
@@ -47,7 +46,6 @@ export function OnboardingOverlay({
   step,
   onNext,
   onCancel,
-  canProceedFromStep2,
 }: OnboardingOverlayProps) {
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);

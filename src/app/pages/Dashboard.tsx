@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { deleteEntries, getEntriesPaginated, getTags } from "../actions/diary";
+import { CreateBookModal, type BookData } from "../components/CreateBookModal";
 import {
   DiaryImage,
   ImagePreviewGallery,
@@ -32,15 +33,16 @@ import { MagicCalendarRange } from "../components/MagicCalendarRange";
 import { OldFriendButton } from "../components/OldFriendChat/OldFriendButton";
 import { OldFriendChatDrawer } from "../components/OldFriendChat/OldFriendChatDrawer";
 import { cn, LeatherBox, MagicButton, ParchmentBox } from "../components/UI";
+import { ViewEntryModal } from "../components/ViewEntryModal";
 import { AuthModal } from "../components/auth/AuthModal";
 import { useOnboardingContext } from "../components/onboarding/OnboardingContext";
 import { useDiaryStore } from "../store";
-import { CreateBookModal, type BookData } from "../components/CreateBookModal";
-import { ViewEntryModal } from "../components/ViewEntryModal";
 import type { OldFriendContext } from "../types/ai-chat";
 
-import { handleImageUploadHelper, handleImagePasteHelper } from "../../lib/image";
-
+import {
+  handleImagePasteHelper,
+  handleImageUploadHelper,
+} from "../../lib/image";
 
 /**
  * Dashboard 主组件
@@ -549,7 +551,9 @@ export function Dashboard() {
                       placeholder="Dear diary, today I learned a new spell..."
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
-                      onPaste={(e) => handleImagePasteHelper(e, images, setImages, 5)}
+                      onPaste={(e) =>
+                        handleImagePasteHelper(e, images, setImages, 5)
+                      }
                     />
                   </div>
                   <ImagePreviewGallery
@@ -1107,7 +1111,7 @@ export function Dashboard() {
                     className="flex flex-col gap-3 relative z-0 h-full w-full cursor-pointer">
                     <div className="flex justify-between items-start">
                       <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">
-                        {entry.title ?? "Untitled"}
+                        {entry.title ?? ""}
                       </h3>
                       <span className="text-sm font-['Cinzel'] text-rusty-copper/70 flex-shrink-0 ml-2">
                         {format(new Date(entry.date), "MMM dd")}

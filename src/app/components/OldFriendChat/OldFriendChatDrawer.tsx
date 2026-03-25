@@ -1,12 +1,13 @@
 "use client";
 
+import { useRef } from "react";
+
 import { cn } from "@/app/components/UI";
 import type { ChatMessage, OldFriendContext } from "@/app/types/ai-chat";
 import { Send, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { flushSync } from "react-dom";
+import { useEffect, useState } from "react";
+import { createPortal, flushSync } from "react-dom";
 
 /**
  * 初始欢迎消息：作为 AI（老朋友）的开场白
@@ -23,7 +24,7 @@ interface OldFriendChatDrawerProps {
 }
 
 /**
- * 解析 SSE 数据行，提取 delta.content 与 delta.reasoning_content
+ * 解析 SSE 数据行，提取 delta.content、delta.reasoning_content 或注入的 response_id
  * @param line - SSE 格式的一行数据（如 "data: {...}"）
  * @returns 提取的文本内容与状态
  */
@@ -31,19 +32,42 @@ function parseSSEChunk(line: string): {
   content: string;
   reasoning: string;
   isDone: boolean;
+  id?: string;
 } {
   if (line.startsWith("data: ")) {
     const data = line.slice(6);
     if (data === "[DONE]") return { content: "", reasoning: "", isDone: true };
     try {
-      const json = JSON.parse(data) as {
-        choices?: Array<{
-          delta?: { content?: string; reasoning_content?: string };
-        }>;
-      };
+      const json = JSON.parse(data) as Record<string, unknown>;
+      if ((json as { type?: string }).type === "response_id") {
+        return {
+          id: (json as { id?: string }).id,
+          content: "",
+          reasoning: "",
+          isDone: false,
+        };
+      }
+      const responseId = (json as { response?: { id?: string } }).response?.id;
+      if (responseId) {
+        return { id: responseId, content: "", reasoning: "", isDone: false };
+      }
+      if ((json as { type?: string }).type === "response.output_text.delta") {
+        return {
+          content: (json as { delta?: string }).delta ?? "",
+          reasoning: "",
+          isDone: false,
+        };
+      }
+      const choices = (
+        json as {
+          choices?: Array<{
+            delta?: { content?: string; reasoning_content?: string };
+          }>;
+        }
+      ).choices;
       return {
-        content: json.choices?.[0]?.delta?.content ?? "",
-        reasoning: json.choices?.[0]?.delta?.reasoning_content ?? "",
+        content: choices?.[0]?.delta?.content ?? "",
+        reasoning: choices?.[0]?.delta?.reasoning_content ?? "",
         isDone: false,
       };
     } catch {
@@ -74,11 +98,19 @@ export function OldFriendChatDrawer({
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   /** 流式响应内容：正在接收的 AI 回复（逐字更新） */
   const [streamingContent, setStreamingContent] = useState("");
+  /** 初始化流式内容：抽屉打开时的固定问候 + 模型回复 */
+  const [initStreamingContent, setInitStreamingContent] = useState("");
   /** 用户输入框内容 */
   const [input, setInput] = useState("");
   /** 是否正在等待 AI 回复 */
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  /** 当前 Session 的 response_id，用于多轮对话串联 */
+  const [responseId, setResponseId] = useState<string | null>(null);
+  const responseIdRef = useRef<string | null>(null);
+  const initRequestStartedRef = useRef(false);
+  /** Session 是否已初始化（已发送过带 instructions 的初始化请求） */
+  const [isSessionInitialized, setIsSessionInitialized] = useState(false);
   /** 消息列表滚动容器引用，用于自动滚动到底部 */
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -93,9 +125,189 @@ export function OldFriendChatDrawer({
     });
   }, [messages, streamingContent]);
 
+  /**
+   * 抽屉关闭时重置 Session
+   */
+  useEffect(() => {
+    if (!open) {
+      setResponseId(null);
+      setIsSessionInitialized(false);
+      setMessages([INITIAL_MESSAGE]);
+      setInitStreamingContent("");
+      responseIdRef.current = null;
+      initRequestStartedRef.current = false;
+    }
+  }, [open]);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  /**
+   * 抽屉打开时，立即发起初始化请求建立 Session 缓存
+   */
+  useEffect(() => {
+    if (!open || isSessionInitialized || initRequestStartedRef.current) return;
+    initRequestStartedRef.current = true;
+
+    const initSession = async () => {
+      setInitStreamingContent(INITIAL_MESSAGE.content);
+      const limitedContext = context
+        ? { ...context, entries: context.entries.slice(0, 20) }
+        : context;
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: INITIAL_MESSAGE.content,
+            context: limitedContext,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const detail = (data as { detail?: string }).detail;
+          if (detail) {
+            try {
+              const parsed = JSON.parse(detail);
+              console.error(
+                "[OldFriendChat] Session 初始化 API 错误详情:",
+                parsed,
+              );
+            } catch {
+              console.error(
+                "[OldFriendChat] Session 初始化 API 错误详情:",
+                detail,
+              );
+            }
+          }
+          setIsSessionInitialized(true);
+          return;
+        }
+        const reader = res.body?.getReader();
+        if (!reader) {
+          setIsSessionInitialized(true);
+          return;
+        }
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullContent = INITIAL_MESSAGE.content;
+        let pendingPartial = "";
+        let lastFlushAt = 0;
+        let flushTimer: ReturnType<typeof setTimeout> | null = null;
+        let hasContent = false;
+        let firstChunkAt: number | null = null;
+
+        const flushInitStreaming = () => {
+          lastFlushAt = performance.now();
+          flushTimer = null;
+          flushSync(() => setInitStreamingContent(fullContent));
+        };
+
+        const scheduleInitFlush = () => {
+          const now = performance.now();
+          if (now - lastFlushAt >= STREAM_FLUSH_INTERVAL_MS) {
+            flushInitStreaming();
+            return;
+          }
+          if (!flushTimer) {
+            const wait = STREAM_FLUSH_INTERVAL_MS - (now - lastFlushAt);
+            flushTimer = setTimeout(flushInitStreaming, wait);
+          }
+        };
+
+        const handleResponseId = (id: string) => {
+          if (!responseIdRef.current) {
+            setResponseId(id);
+            responseIdRef.current = id;
+          }
+        };
+
+        const handleContentDelta = (delta: string) => {
+          if (!delta) return;
+          if (!hasContent) {
+            hasContent = true;
+          }
+          fullContent += delta;
+          scheduleInitFlush();
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          if (!firstChunkAt) firstChunkAt = performance.now();
+
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const parsed = parseSSEChunk(line);
+            if (parsed.id) {
+              handleResponseId(parsed.id);
+              continue;
+            }
+            if (parsed.content) {
+              if (pendingPartial && parsed.content === pendingPartial) {
+                pendingPartial = "";
+                continue;
+              }
+              handleContentDelta(parsed.content);
+              pendingPartial = parsed.content;
+            }
+          }
+
+          if (buffer) {
+            const parsed = parseSSEChunk(buffer);
+            if (parsed.id) {
+              handleResponseId(parsed.id);
+            } else if (parsed.content) {
+              const delta =
+                pendingPartial && parsed.content.startsWith(pendingPartial)
+                  ? parsed.content.slice(pendingPartial.length)
+                  : parsed.content;
+              if (delta) {
+                handleContentDelta(delta);
+              }
+              pendingPartial = parsed.content;
+            }
+          } else {
+            pendingPartial = "";
+          }
+        }
+
+        if (flushTimer) {
+          clearTimeout(flushTimer);
+          flushTimer = null;
+        }
+        if (hasContent) {
+          flushSync(() => setInitStreamingContent(fullContent));
+        }
+        if (firstChunkAt) {
+          const doneAt = performance.now();
+          console.log(
+            `[OldFriendChat] Init stream: firstChunk→done ${Math.round(doneAt - firstChunkAt)}ms`,
+          );
+        }
+
+        const finalContent = fullContent || INITIAL_MESSAGE.content;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg === INITIAL_MESSAGE ? { ...msg, content: finalContent } : msg,
+          ),
+        );
+      } catch {
+        // silent fail
+      } finally {
+        setInitStreamingContent("");
+        setIsSessionInitialized(true);
+      }
+    };
+
+    initSession();
+  }, [open, isSessionInitialized, context]);
 
   /**
    * 发送消息处理函数
@@ -119,29 +331,38 @@ export function OldFriendChatDrawer({
     setStreamingContent("");
 
     try {
-      // 构建发送给后端的消息历史
-      const chatMessages = messages
-        // 过滤掉系统消息，只保留用户和助手的对话
-        .filter((m) => m.role !== "system")
-        // 合并当前用户消息（setMessages是异步更新，不能直接用state）
-        .concat(userMsg)
-        // 格式化消息结构，只保留角色和内容字段
-        .map((m) => ({ role: m.role, content: m.content }));
+      // 构建发送给后端的请求体：仅传当前输入与 response_id
+      const requestBody: {
+        input: string;
+        previous_response_id?: string;
+      } = { input: text };
+      if (responseId) {
+        requestBody.previous_response_id = responseId;
+      }
 
       // 调用聊天接口，发送POST请求
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // 请求体包含消息历史和上下文信息
-        body: JSON.stringify({ messages: chatMessages, context }),
+        body: JSON.stringify(requestBody),
       });
 
       // 接口返回错误时的处理
       if (!res.ok) {
         // 尝试解析错误信息，解析失败则返回空对象
         const data = await res.json().catch(() => ({}));
+        const errorMsg = (data as { error?: string }).error ?? "请求失败";
+        const detail = (data as { detail?: string }).detail;
+        if (detail) {
+          try {
+            const parsed = JSON.parse(detail);
+            console.error("[OldFriendChat] API 错误详情:", parsed);
+          } catch {
+            console.error("[OldFriendChat] API 错误详情:", detail);
+          }
+        }
         // 抛出错误，包含后端返回的错误信息或默认提示
-        throw new Error((data as { error?: string }).error ?? "请求失败");
+        throw new Error(errorMsg);
       }
 
       // 获取流式响应的读取器
@@ -208,6 +429,12 @@ export function OldFriendChatDrawer({
         scheduleFlush();
       };
 
+      const handleResponseId = (id: string) => {
+        if (!responseId) {
+          setResponseId(id);
+        }
+      };
+
       // 循环读取流式响应，直到结束
       while (true) {
         // 读取下一个chunk，done表示响应是否结束，value是二进制数据
@@ -227,30 +454,37 @@ export function OldFriendChatDrawer({
 
         // 遍历所有完整的SSE行
         for (const line of lines) {
-          // 解析SSE行，提取文本内容
-          const { content, reasoning } = parseSSEChunk(line);
-          handleReasoning(reasoning);
-          if (content) {
-            if (pendingPartial && content === pendingPartial) {
-              pendingPartial = "";
-              continue;
+          const parsed = parseSSEChunk(line);
+          if (parsed.id) {
+            handleResponseId(parsed.id);
+          } else {
+            handleReasoning(parsed.reasoning);
+            if (parsed.content) {
+              if (pendingPartial && parsed.content === pendingPartial) {
+                pendingPartial = "";
+                continue;
+              }
+              handleContentDelta(parsed.content);
             }
-            handleContentDelta(content);
           }
         }
 
         if (buffer) {
-          const { content: partialContent, reasoning } = parseSSEChunk(buffer);
-          handleReasoning(reasoning);
-          if (partialContent) {
-            const delta =
-              pendingPartial && partialContent.startsWith(pendingPartial)
-                ? partialContent.slice(pendingPartial.length)
-                : partialContent;
-            if (delta) {
-              handleContentDelta(delta);
+          const parsed = parseSSEChunk(buffer);
+          if (parsed.id) {
+            handleResponseId(parsed.id);
+          } else {
+            handleReasoning(parsed.reasoning);
+            if (parsed.content) {
+              const delta =
+                pendingPartial && parsed.content.startsWith(pendingPartial)
+                  ? parsed.content.slice(pendingPartial.length)
+                  : parsed.content;
+              if (delta) {
+                handleContentDelta(delta);
+              }
+              pendingPartial = parsed.content;
             }
-            pendingPartial = partialContent;
           }
         } else {
           pendingPartial = "";
@@ -259,18 +493,19 @@ export function OldFriendChatDrawer({
 
       // 循环结束后，处理缓冲区中剩余的内容
       if (buffer) {
-        // 解析剩余缓冲区内容
-        const { content, reasoning } = parseSSEChunk(buffer);
-        handleReasoning(reasoning);
-        // 如果有有效内容
-        if (content) {
-          const delta =
-            pendingPartial && content.startsWith(pendingPartial)
-              ? content.slice(pendingPartial.length)
-              : content;
-          // 追加到完整内容
-          if (delta) {
-            handleContentDelta(delta);
+        const parsed = parseSSEChunk(buffer);
+        if (parsed.id) {
+          handleResponseId(parsed.id);
+        } else {
+          handleReasoning(parsed.reasoning);
+          if (parsed.content) {
+            const delta =
+              pendingPartial && parsed.content.startsWith(pendingPartial)
+                ? parsed.content.slice(pendingPartial.length)
+                : parsed.content;
+            if (delta) {
+              handleContentDelta(delta);
+            }
           }
         }
       }
@@ -290,8 +525,7 @@ export function OldFriendChatDrawer({
         };
         try {
           localStorage.setItem(STREAM_METRICS_KEY, JSON.stringify(metrics));
-        } catch {
-        }
+        } catch {}
       }
 
       // 流式响应结束后，将完整的AI回复添加到消息列表
@@ -362,26 +596,39 @@ export function OldFriendChatDrawer({
             <div
               ref={scrollRef}
               className="flex-1 overflow-y-auto p-4 space-y-4 magic-scrollbar">
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex",
-                    m.role === "user" ? "justify-end" : "justify-start",
-                  )}>
+              {messages.map((m, i) => {
+                const isLast = i === messages.length - 1;
+                const showInitStream =
+                  isLast &&
+                  m.role === "assistant" &&
+                  initStreamingContent !== "";
+                const displayContent = showInitStream
+                  ? initStreamingContent
+                  : m.content;
+                return (
                   <div
+                    key={i}
                     className={cn(
-                      "max-w-[85%] rounded-2xl px-4 py-2.5",
-                      m.role === "user"
-                        ? "bg-faded-gold/20 text-faded-gold border border-faded-gold/30"
-                        : "bg-white/10 text-parchment-white border border-faded-gold/20",
+                      "flex",
+                      m.role === "user" ? "justify-end" : "justify-start",
                     )}>
-                    <p className="font-['Caveat'] text-lg whitespace-pre-wrap">
-                      {m.content}
-                    </p>
+                    <div
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-4 py-2.5",
+                        m.role === "user"
+                          ? "bg-faded-gold/20 text-faded-gold border border-faded-gold/30"
+                          : "bg-white/10 text-parchment-white border border-faded-gold/20",
+                      )}>
+                      <p className="font-['Caveat'] text-lg whitespace-pre-wrap">
+                        {displayContent}
+                        {showInitStream && (
+                          <span className="inline-block w-2 h-4 ml-0.5 bg-faded-gold/80 animate-pulse" />
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {streamingContent && (
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-white/10 text-parchment-white border border-faded-gold/20">

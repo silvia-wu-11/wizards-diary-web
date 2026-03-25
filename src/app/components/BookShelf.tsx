@@ -1,5 +1,4 @@
 import { motion } from 'motion/react';
-import { Book } from 'lucide-react';
 
 const SHELF_BOOKS = [
   { id: 1, title: 'Year 1', color: '#8B5A5A', height: 'h-24' },
@@ -14,7 +13,7 @@ export function BookShelf() {
     <div className="my-12 relative max-w-5xl mx-auto px-4">
       {/* Shelf Content */}
       <div className="flex items-end gap-2 md:gap-4 px-8 pb-1 relative z-10 h-32 overflow-x-auto scrollbar-hide">
-        {SHELF_BOOKS.map((book, i) => (
+        {SHELF_BOOKS.map((book) => (
           <motion.div
             key={book.id}
             whileHover={{ y: -10, scale: 1.05 }}

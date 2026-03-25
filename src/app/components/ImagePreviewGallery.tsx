@@ -1,6 +1,7 @@
-import { X, Loader2, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
+/* eslint-disable @next/next/no-img-element */
+import { X, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Dispatch, SetStateAction, useState, useEffect } from "react";
+import { Dispatch, SetStateAction, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 export interface DiaryImage {
@@ -23,7 +24,6 @@ export function ImagePreviewGallery({
   images,
   setImages,
   isEditing,
-  maxImages = 6,
   previewIndex,
   setPreviewIndex,
   layoutStyle = "grid"

@@ -1,34 +1,17 @@
+/* eslint-disable @next/next/no-img-element */
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DiaryEntry } from '../lib/store';
 import { format } from 'date-fns';
-import { X, ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import clsx from 'clsx';
 interface MagicBookProps {
   entry: DiaryEntry;
   onClose: () => void;
 }
 
-export function MagicBook({ entry, onClose }: MagicBookProps) {
+export function MagicBook({ entry }: MagicBookProps) {
   const [isOpen, setIsOpen] = useState(false);
-
-  // Variants for book opening animation
-  const bookVariants = {
-    closed: { 
-      rotateY: 0, 
-      width: '300px', 
-      height: '400px',
-      x: 0,
-      transition: { duration: 0.8, ease: "easeInOut" }
-    },
-    open: { 
-      rotateY: -180, // Rotate the cover open
-      width: '600px', // Expand width
-      height: '400px',
-      x: -150, // Center adjustment
-      transition: { duration: 0.8, ease: "easeInOut" }
-    }
-  };
 
   // Simplified approach: Instead of complex 3D CSS which is hard to perfect without a library,
   // let's do a cross-fade or slide animation between cover and open pages.

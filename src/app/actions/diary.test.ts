@@ -43,6 +43,7 @@ const mockEntryId = 'entry-789';
 
 describe('diary Server Actions', () => {
   beforeEach(() => {
+    // @ts-expect-error - Mocking overloaded function
     vi.mocked(auth).mockResolvedValue({
       user: { id: mockUserId, email: 'test@example.com', name: 'Test' },
       expires: '',
@@ -51,6 +52,7 @@ describe('diary Server Actions', () => {
 
   describe('getDiaryData', () => {
     it('未登录时抛出 Unauthorized', async () => {
+      // @ts-expect-error - Mocking overloaded function
       vi.mocked(auth).mockResolvedValue(null);
       await expect(getDiaryData()).rejects.toThrow('Unauthorized');
     });
@@ -214,6 +216,7 @@ describe('diary Server Actions', () => {
     }));
 
     it('未登录时抛出 Unauthorized', async () => {
+      // @ts-expect-error - Mocking overloaded function
       vi.mocked(auth).mockResolvedValue(null);
       const { getEntriesPaginated } = await import('./diary');
       await expect(getEntriesPaginated({})).rejects.toThrow('Unauthorized');

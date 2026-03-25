@@ -165,6 +165,29 @@ export async function createEntry(input: CreateEntryInput): Promise<DiaryEntryDt
   return entryFromPrisma(created);
 }
 
+/** 批量删除日记 */
+export async function deleteEntries(ids: string[]): Promise<{ count: number }> {
+  const userId = await requireAuth();
+  if (!userId) {
+    toast.error('请先登录');
+    throw new Error('Unauthorized');
+  }
+
+  if (!ids || ids.length === 0) {
+    return { count: 0 };
+  }
+
+  // 校验归属权并删除
+  const result = await prisma.diaryEntry.deleteMany({
+    where: {
+      id: { in: ids },
+      book: { userId } // 只能删除属于当前用户的日记
+    }
+  });
+
+  return { count: result.count };
+}
+
 /** 更新日记 */
 export async function updateEntry(
   id: string,

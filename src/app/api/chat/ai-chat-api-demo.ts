@@ -17,8 +17,10 @@
 //     "stream": true
 // }'
 
+import type { NextApiRequest, NextApiResponse } from 'next';
+
 // 示例使用 Pages Router (pages/api/chat.js)
-export default async function handler(req: any, res: any) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === "POST") {
     try {
       const userMessage = req.body.message; // 从前端获取用户消息

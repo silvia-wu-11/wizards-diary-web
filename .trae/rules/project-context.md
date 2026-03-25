@@ -1,6 +1,6 @@
 ---
-alwaysApply: false
-globs: *.ts,*.tsx
+description: 魔法日记本项目目标、技术栈与 Vibe Coding 上下文
+alwaysApply: true
 ---
 
 # 魔法日记本 · 项目上下文
@@ -41,6 +41,7 @@ globs: *.ts,*.tsx
 - **期望的目录结构**：
   - 当前能力规格：`openspec/specs/<domain>/spec.md`（按领域分，如 auth、diary-api、ai-chat）。
   - 单次变更：`openspec/changes/<change-id>/`，内含 `proposal.md`、`design.md`、`tasks.md` 及 `specs/` 下的 spec delta。
+- **tasks.md 格式要求**：分阶段、按执行顺序用 todo 列表编排，每阶段包含阶段标题与任务编号，每项任务完成后可勾选。
 - **BDD 行为描述规范**：在 `spec.md` 中用 **Requirement + GIVEN/WHEN/THEN** 描述行为：每个 Requirement 用「系统 SHALL …」写清契约，其下用 Scenario 列出具体场景，每个 Scenario 用 GIVEN（前置条件）、WHEN（用户/系统动作）、THEN（预期结果，可多条 AND）书写；这样既可作为需求文档，也可与测试用例一一对应。
 - **协作习惯**：
   - 在动手写/改实现前，先读相关 `openspec/specs/` 与本次 `openspec/changes/<id>/` 中的文档，以 spec 和 design 为「要实现的真相」。

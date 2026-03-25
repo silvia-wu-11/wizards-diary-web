@@ -1,0 +1,49 @@
+---
+alwaysApply: false
+globs: *.ts,*.tsx
+---
+
+# 魔法日记本 · 项目上下文
+
+## 我想做的项目
+
+- **一句话**：这是一个 AI native 的 Web 全栈应用「魔法氛围日记本」，整体灵感来自魔法世界氛围，但会刻意避开直接使用哈利波特 IP，以避免侵权。
+- **面试定位**：我希望把它打造成一个「从 0 到 1 由我主导的 AI 全栈 side project」，在面试里重点展示我如何利用 AI 和 Next.js 打通前后端，而不是只会写前端页面。
+
+## 预期技术栈
+
+- **框架**：Next.js（App Router）全栈
+- **AI 能力**：Vercel AI SDK（流式、多轮对话）
+- **样式**：Tailwind CSS
+- **数据层**：PostgreSQL + Prisma ORM
+- **认证**：NextAuth.js
+- **测试框架**：Vitest（单测/集成）+ Supertest（API 集成）+ Playwright（E2E）
+- **工程质量**：TDD（尽量让测试与实现同步推进）
+
+## 我的背景（请据此调整解释深度）
+
+- 工作约 2.5 年，主要做前端开发，熟悉 TypeScript + React。
+- 几乎没有后端/服务端经验：在 API 设计、数据库建模、Prisma、NextAuth 等部分，希望你给出**可直接使用的代码片段 + 很短的「为什么这么做」说明**。
+- 我在用 Cursor 做 Vibe Coding：优先做出可运行、可 demo 的版本，再逐步打磨体验与代码质量。
+
+## Vibe Coding 合作方式
+
+- **小步快跑**：每次改动保持能运行、能验证，避免一次改很多导致难以排错。
+- **先跑通再完善**：新功能先实现一条清晰的 happy path，再补充错误处理和边界情况。
+- **遇到不熟悉的后端相关内容时**：
+  - 请给出「可以直接复制」的示例代码。
+  - 再用 1～3 句自然语言解释关键设计点，方便我在面试中转述。
+- **面试友好**：在能做到的前提下，让代码结构、命名和文件拆分适合讲故事，便于我对面试官描述架构、取舍和思路。
+
+## OpenSpec 工作机制（与本仓库 rules 配合使用）
+
+- **何时创建 OpenSpec change**：开发新功能点、或对现有能力做较大行为/接口变更时；小修小补（如文案、样式微调）可不建 change。
+- **期望的目录结构**：
+  - 当前能力规格：`openspec/specs/<domain>/spec.md`（按领域分，如 auth、diary-api、ai-chat）。
+  - 单次变更：`openspec/changes/<change-id>/`，内含 `proposal.md`、`design.md`、`tasks.md` 及 `specs/` 下的 spec delta。
+- **BDD 行为描述规范**：在 `spec.md` 中用 **Requirement + GIVEN/WHEN/THEN** 描述行为：每个 Requirement 用「系统 SHALL …」写清契约，其下用 Scenario 列出具体场景，每个 Scenario 用 GIVEN（前置条件）、WHEN（用户/系统动作）、THEN（预期结果，可多条 AND）书写；这样既可作为需求文档，也可与测试用例一一对应。
+- **协作习惯**：
+  - 在动手写/改实现前，先读相关 `openspec/specs/` 与本次 `openspec/changes/<id>/` 中的文档，以 spec 和 design 为「要实现的真相」。
+  - **先写测再实现**：开发新功能时，先根据 spec/design 写出或更新测试用例（红），再写实现代码直到测试通过（绿），必要时再重构；小修小补（如文案、样式）可灵活处理。
+  - 若实现过程中发现需求或设计需要调整，优先更新对应的 spec/design，再改测试与代码，保持文档与代码一致。
+  - 本仓库的 Cursor rules：project-context 管目标、技术栈与协作流程；fullstack-conventions 管写代码时的具体约定（风格、目录、测试写法等）。OpenSpec 管「做什么、怎么设计」。

@@ -101,6 +101,41 @@
 
 ---
 
+### Requirement: 流式展示在思考阶段提供可见反馈并保持流畅
+系统 SHALL 在流式响应仅包含推理字段时提供“思考中”的可见状态，并对高频分片做节流合并，避免空白与卡顿。
+
+#### Scenario: 仅收到 reasoning_content 时展示“思考中”
+- GIVEN 用户已发送问题
+- AND 前端开始接收 SSE 流式响应
+- WHEN SSE 分片仅包含 reasoning_content 且尚未出现 content
+- THEN 前端展示“思考中”的临时状态
+- AND 当首个 content 到达后切换为实际回复内容
+
+#### Scenario: 高频单字分片节流合并
+- GIVEN 用户已发送问题
+- AND 前端正在接收高频单字分片
+- WHEN 分片间隔很短（如 30–50ms 内连续到达）
+- THEN 前端以节流方式合并分片更新
+- AND 用户感知到流式输出连续且无明显卡顿
+
+---
+
+### Requirement: 系统记录流式性能指标
+系统 SHALL 记录流式响应中的首分片到首 content 的时间，以及首 content 到完成的时间，用于定位模型与前端的时延来源。
+
+#### Scenario: 记录首分片与首 content 时间
+- GIVEN 用户已发送问题
+- AND 前端开始接收 SSE 流式响应
+- WHEN 首个分片到达且后续首个 content 出现
+- THEN 系统记录“首分片到首 content”的耗时
+
+#### Scenario: 记录首 content 到完成时间
+- GIVEN 前端已接收到首个 content
+- WHEN 流式响应结束
+- THEN 系统记录“首 content 到完成”的耗时
+
+---
+
 ## 实现入口
 
 本规格的实现由 OpenSpec 变更驱动，详见：

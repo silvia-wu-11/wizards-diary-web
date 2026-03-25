@@ -10,6 +10,7 @@ export function DiaryInput() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [mood, setMood] = useState<'magical' | 'neutral' | 'sad' | 'happy'>('magical');
+  const moodOptions: Array<typeof mood> = ['magical', 'happy', 'neutral', 'sad'];
 
   const today = new Date();
   const formattedDate = format(today, 'dd MMMM yyyy, EEEE');
@@ -63,10 +64,10 @@ export function DiaryInput() {
             <span>{formattedDate}</span>
           </div>
           <div className="flex gap-2">
-            {['magical', 'happy', 'neutral', 'sad'].map((m) => (
+            {moodOptions.map((m) => (
               <button
                 key={m}
-                onClick={() => setMood(m as any)}
+                onClick={() => setMood(m)}
                 className={`w-8 h-8 rounded-full border-2 transition-all ${mood === m ? 'border-burgundy scale-110 shadow-md bg-gold/20' : 'border-transparent hover:bg-black/5'}`}
                 title={m}
               >

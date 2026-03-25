@@ -1,25 +1,44 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { ImagePreviewGallery, DiaryImage } from '../components/ImagePreviewGallery';
-import { Search, Image as ImageIcon, Wand2, Calendar, BookOpen, Star, Filter, X, Loader2, LogIn } from 'lucide-react';
-import { format } from 'date-fns';
-import { motion, AnimatePresence } from 'motion/react';
-import { useDiaryStore } from '../store';
-import { ParchmentBox, LeatherBox, MagicButton } from '../components/UI';
-import { cn } from '../components/UI';
-import { MagicCalendar } from '../components/MagicCalendar';
-import { MagicCalendarRange } from '../components/MagicCalendarRange';
-import { AuthModal } from '../components/auth/AuthModal';
-import { useOnboardingContext } from '../components/onboarding/OnboardingContext';
-import { OldFriendButton } from '../components/OldFriendChat/OldFriendButton';
-import { OldFriendChatDrawer } from '../components/OldFriendChat/OldFriendChatDrawer';
-import { toast } from 'sonner';
-import { getEntriesPaginated, getTags } from '../actions/diary';
-import type { OldFriendContext } from '../types/ai-chat';
+/**
+ * Dashboard 页面：日记创建、筛选与浏览的主入口
+ */
+import { format } from "date-fns";
+import {
+  BookOpen,
+  Calendar,
+  Filter,
+  Image as ImageIcon,
+  Loader2,
+  LogIn,
+  Search,
+  Star,
+  Wand2,
+  X,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { getEntriesPaginated, getTags } from "../actions/diary";
+import {
+  DiaryImage,
+  ImagePreviewGallery,
+} from "../components/ImagePreviewGallery";
+import { MagicCalendar } from "../components/MagicCalendar";
+import { MagicCalendarRange } from "../components/MagicCalendarRange";
+import { OldFriendButton } from "../components/OldFriendChat/OldFriendButton";
+import { OldFriendChatDrawer } from "../components/OldFriendChat/OldFriendChatDrawer";
+import { cn, LeatherBox, MagicButton, ParchmentBox } from "../components/UI";
+import { AuthModal } from "../components/auth/AuthModal";
+import { useOnboardingContext } from "../components/onboarding/OnboardingContext";
+import { useDiaryStore } from "../store";
+import type { OldFriendContext } from "../types/ai-chat";
 
+/**
+ * 压缩图片并输出 base64，限制边长与体积
+ */
 const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -28,7 +47,7 @@ const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
       const img = new Image();
       img.src = event.target?.result as string;
       img.onload = () => {
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         let { width, height } = img;
         const maxDim = 2048;
         if (width > maxDim || height > maxDim) {
@@ -38,13 +57,16 @@ const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
         }
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, width, height);
         let quality = 0.8;
-        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-        while (dataUrl.length * 0.75 > maxSizeMB * 1024 * 1024 && quality > 0.1) {
+        let dataUrl = canvas.toDataURL("image/jpeg", quality);
+        while (
+          dataUrl.length * 0.75 > maxSizeMB * 1024 * 1024 &&
+          quality > 0.1
+        ) {
           quality -= 0.1;
-          dataUrl = canvas.toDataURL('image/jpeg', quality);
+          dataUrl = canvas.toDataURL("image/jpeg", quality);
         }
         resolve(dataUrl);
       };
@@ -54,45 +76,64 @@ const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
   });
 };
 
+/**
+ * Dashboard 主组件
+ */
 export function Dashboard() {
+  // 路由与会话
   const router = useRouter();
   const { data: session } = useSession();
   const { entries, books, saveEntry, addBook } = useDiaryStore();
   const [isSaving, setIsSaving] = useState(false);
 
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [tagsStr, setTagsStr] = useState('');
-  const [selectedBook, setSelectedBook] = useState(books[0]?.id ?? '');
-  const [searchQuery, setSearchQuery] = useState('');
+  // 新建日记表单状态
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [tagsStr, setTagsStr] = useState("");
+  const [selectedBook, setSelectedBook] = useState(books[0]?.id ?? "");
+  const [searchQuery, setSearchQuery] = useState("");
   const [images, setImages] = useState<DiaryImage[]>([]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
-  const [viewingPreviewIndex, setViewingPreviewIndex] = useState<number | null>(null);
+  const [viewingPreviewIndex, setViewingPreviewIndex] = useState<number | null>(
+    null,
+  );
   const [isNewBookModalOpen, setIsNewBookModalOpen] = useState(false);
-  const [newBookName, setNewBookName] = useState('');
-  const [newBookColor, setNewBookColor] = useState('#5c2a2a');
-  const [newBookType, setNewBookType] = useState('potion');
+  const [newBookName, setNewBookName] = useState("");
+  const [newBookColor, setNewBookColor] = useState("#5c2a2a");
+  const [newBookType, setNewBookType] = useState("potion");
   const [viewingEntryId, setViewingEntryId] = useState<string | null>(null);
-  const [selectedFilterDateRange, setSelectedFilterDateRange] = useState<{ from: string; to: string } | null>(null);
+  const [selectedFilterDateRange, setSelectedFilterDateRange] = useState<{
+    from: string;
+    to: string;
+  } | null>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isEntryDatePickerOpen, setIsEntryDatePickerOpen] = useState(false);
-  
+
   // New state for the creation date
   const [entryDate, setEntryDate] = useState(() => {
     const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
-  
+
   // Tag filter state
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [isTagDropdownOpen, setIsTagDropdownOpen] = useState(false);
   const [isBookDropdownOpen, setIsBookDropdownOpen] = useState(false);
-  const [selectedFilterBook, setSelectedFilterBook] = useState<string | null>(null);
-  const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] = useState(false);
+  const [selectedFilterBook, setSelectedFilterBook] = useState<string | null>(
+    null,
+  );
+  const [isBookFilterDropdownOpen, setIsBookFilterDropdownOpen] =
+    useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalInitialMode, setAuthModalInitialMode] = useState<'login' | 'register'>('login');
+  const [authModalInitialMode, setAuthModalInitialMode] = useState<
+    "login" | "register"
+  >("login");
   const [isCreatingBook, setIsCreatingBook] = useState(false);
-  const [pendingBookData, setPendingBookData] = useState<{ name: string; color: string; type: string } | null>(null);
+  const [pendingBookData, setPendingBookData] = useState<{
+    name: string;
+    color: string;
+    type: string;
+  } | null>(null);
   const onboardingCtx = useOnboardingContext();
   const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
   const bookDropdownRef = useRef<HTMLDivElement>(null);
@@ -102,13 +143,15 @@ export function Dashboard() {
   useEffect(() => {
     if (!onboardingCtx) return;
     onboardingCtx.registerActions({
-      openAuthModal: (mode = 'login') => {
+      openAuthModal: (mode = "login") => {
         setAuthModalInitialMode(mode);
         setIsAuthModalOpen(true);
       },
       openCreateBookModal: () => setIsNewBookModalOpen(true),
       scrollToBookshelf: () => {
-        document.getElementById('bookshelf')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document
+          .getElementById("bookshelf")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
       },
     });
   }, [onboardingCtx]);
@@ -119,7 +162,7 @@ export function Dashboard() {
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingMoreRef = useRef(false);
 
@@ -131,7 +174,10 @@ export function Dashboard() {
 
   // 默认选中第一个日记本
   useEffect(() => {
-    if (books.length > 0 && (!selectedBook || !books.some(b => b.id === selectedBook))) {
+    if (
+      books.length > 0 &&
+      (!selectedBook || !books.some((b) => b.id === selectedBook))
+    ) {
       setSelectedBook(books[0].id);
     }
   }, [books, selectedBook]);
@@ -139,20 +185,25 @@ export function Dashboard() {
   // Close book dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (bookDropdownRef.current && !bookDropdownRef.current.contains(e.target as Node)) {
+      if (
+        bookDropdownRef.current &&
+        !bookDropdownRef.current.contains(e.target as Node)
+      ) {
         setIsBookDropdownOpen(false);
       }
     };
     if (isBookDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isBookDropdownOpen]);
 
   // 加载 tags 用于筛选下拉
   useEffect(() => {
     if (session?.user) {
-      getTags().then(setAvailableTags).catch(() => {});
+      getTags()
+        .then(setAvailableTags)
+        .catch(() => {});
     }
   }, [session?.user]);
 
@@ -221,7 +272,7 @@ export function Dashboard() {
             setIsLoadingEntries(false);
           });
       },
-      { rootMargin: '0px 0px 30vh 0px', threshold: 0 }
+      { rootMargin: "0px 0px 30vh 0px", threshold: 0 },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -237,64 +288,136 @@ export function Dashboard() {
     debouncedSearchQuery,
   ]);
 
+  // 图片上传与压缩
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     const availableSlots = 5 - images.length;
     const filesToProcess = files.slice(0, availableSlots);
-    const newImages = filesToProcess.map(() => ({ id: Math.random().toString(36).substring(2, 9), url: '', loading: true }));
-    setImages(prev => [...prev, ...newImages]);
+    const newImages = filesToProcess.map(() => ({
+      id: Math.random().toString(36).substring(2, 9),
+      url: "",
+      loading: true,
+    }));
+    setImages((prev) => [...prev, ...newImages]);
     for (let i = 0; i < filesToProcess.length; i++) {
       const file = filesToProcess[i];
       const id = newImages[i].id;
       try {
         const compressedUrl = await compressImage(file, 2);
-        setImages(prev => prev.map(img => img.id === id ? { ...img, url: compressedUrl, loading: false } : img));
+        setImages((prev) =>
+          prev.map((img) =>
+            img.id === id
+              ? { ...img, url: compressedUrl, loading: false }
+              : img,
+          ),
+        );
       } catch {
-        setImages(prev => prev.filter(img => img.id === id));
+        setImages((prev) => prev.filter((img) => img.id === id));
       }
     }
-    e.target.value = '';
+    e.target.value = "";
   };
 
+  // 标签输入的回车分隔
+  const handleTagsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const cleaned = tagsStr
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (!cleaned.length) return;
+    setTagsStr(`${cleaned.join(", ")}, `);
+  };
+
+  // 日记保存逻辑
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
-    if (images.some(img => img.loading)) {
-      toast.error('请等待图片加载完成');
+    if (images.some((img) => img.loading)) {
+      toast.error("请等待图片加载完成");
       return;
     }
 
     // 检查登录状态
     if (!session?.user) {
-      toast.error('请先登录账号');
-      setAuthModalInitialMode('login');
+      toast.error("请先登录账号");
+      setAuthModalInitialMode("login");
       setIsAuthModalOpen(true);
       return;
     }
 
     setIsSaving(true);
     try {
-      await saveEntry({
+      const created = await saveEntry({
         title: title.trim() || null,
         content,
         bookId: selectedBook || undefined,
         date: new Date(entryDate).toISOString(),
-        tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
-        images: images.length > 0 ? images.filter(img => !img.loading && img.url).map(img => img.url) : undefined
+        tags: tagsStr
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean),
+        images:
+          images.length > 0
+            ? images
+                .filter((img) => !img.loading && img.url)
+                .map((img) => img.url)
+            : undefined,
       });
-      toast.success('日记已保存');
-      setTitle('');
-      setContent('');
-      setTagsStr('');
+      const keyword = debouncedSearchQuery.trim().toLowerCase();
+      const createdDate = new Date(created.date).getTime();
+      const filterFrom = selectedFilterDateRange?.from
+        ? new Date(selectedFilterDateRange.from).getTime()
+        : null;
+      const filterTo = selectedFilterDateRange?.to
+        ? new Date(selectedFilterDateRange.to).getTime()
+        : null;
+      const tagSet = new Set((created.tags ?? []).map((t) => t.toLowerCase()));
+      const matchesTag = selectedTag
+        ? tagSet.has(selectedTag.toLowerCase())
+        : true;
+      const matchesBook = selectedFilterBook
+        ? created.bookId === selectedFilterBook
+        : true;
+      const matchesDateFrom = filterFrom ? createdDate >= filterFrom : true;
+      const matchesDateTo = filterTo ? createdDate <= filterTo : true;
+      const matchesKeyword = keyword
+        ? `${created.title ?? ""} ${created.content} ${(created.tags ?? []).join(" ")}`
+            .toLowerCase()
+            .includes(keyword)
+        : true;
+      if (
+        matchesTag &&
+        matchesBook &&
+        matchesDateFrom &&
+        matchesDateTo &&
+        matchesKeyword
+      ) {
+        setListEntries((prev) => {
+          const next = [
+            created,
+            ...prev.filter((entry) => entry.id !== created.id),
+          ];
+          return next.sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+          );
+        });
+      }
+      toast.success("日记已保存");
+      setTitle("");
+      setContent("");
+      setTagsStr("");
       setImages([]);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '保存失败');
+      toast.error(err instanceof Error ? err.message : "保存失败");
     } finally {
       setIsSaving(false);
     }
   };
 
+  // 创建日记本逻辑
   const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBookName.trim()) return;
@@ -303,9 +426,9 @@ export function Dashboard() {
       setPendingBookData({
         name: newBookName.trim(),
         color: newBookColor,
-        type: newBookType
+        type: newBookType,
       });
-      setAuthModalInitialMode('register');
+      setAuthModalInitialMode("register");
       setIsAuthModalOpen(true);
       return;
     }
@@ -315,24 +438,24 @@ export function Dashboard() {
       const created = await addBook({
         name: newBookName.trim(),
         color: newBookColor,
-        type: newBookType
+        type: newBookType,
       });
-      toast.success('日记本已创建');
+      toast.success("日记本已创建");
       setSelectedBook(created.id);
       onboardingCtx?.emitBookCreated();
-      setNewBookName('');
-      setNewBookColor('#5c2a2a');
-      setNewBookType('potion');
+      setNewBookName("");
+      setNewBookColor("#5c2a2a");
+      setNewBookType("potion");
       setIsNewBookModalOpen(false);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '创建失败';
-      if (msg === 'Unauthorized' || msg.includes('未登录')) {
+      const msg = err instanceof Error ? err.message : "创建失败";
+      if (msg === "Unauthorized" || msg.includes("未登录")) {
         setPendingBookData({
           name: newBookName.trim(),
           color: newBookColor,
-          type: newBookType
+          type: newBookType,
         });
-        setAuthModalInitialMode('register');
+        setAuthModalInitialMode("register");
         setIsAuthModalOpen(true);
       } else {
         toast.error(msg);
@@ -342,6 +465,7 @@ export function Dashboard() {
     }
   };
 
+  // 页面结构：头部、输入区、书架、筛选工具条、列表与弹层
   return (
     <div className="min-h-screen bg-gradient-to-br from-castle-stone via-[#2c2438] to-[#1a1420] text-parchment-white p-6 pb-20 font-sans relative overflow-hidden">
       <AuthModal
@@ -353,19 +477,19 @@ export function Dashboard() {
           onboardingCtx?.emitAuthComplete();
 
           // 如果有待创建的日记本数据，自动创建
-          if (pendingBookData && authModalInitialMode === 'register') {
+          if (pendingBookData && authModalInitialMode === "register") {
             setIsCreatingBook(true);
             try {
               const created = await addBook(pendingBookData);
-              toast.success('日记本已创建');
+              toast.success("日记本已创建");
               setSelectedBook(created.id);
               onboardingCtx?.emitBookCreated();
-              setNewBookName('');
-              setNewBookColor('#5c2a2a');
-              setNewBookType('potion');
+              setNewBookName("");
+              setNewBookColor("#5c2a2a");
+              setNewBookType("potion");
               setIsNewBookModalOpen(false);
             } catch (err) {
-              const msg = err instanceof Error ? err.message : '创建失败';
+              const msg = err instanceof Error ? err.message : "创建失败";
               toast.error(msg);
             } finally {
               setIsCreatingBook(false);
@@ -377,7 +501,7 @@ export function Dashboard() {
           if (!authSuccessRef.current) {
             onboardingCtx?.emitAuthModalClosedWithoutSuccess?.();
             // 如果注册失败或取消创建，清除待创建数据
-            if (authModalInitialMode === 'register') {
+            if (authModalInitialMode === "register") {
               setPendingBookData(null);
             }
           }
@@ -495,6 +619,7 @@ export function Dashboard() {
                       className="bg-white/20 px-4 py-2 rounded-full border border-rusty-copper/30 outline-none font-['Caveat'] text-xl placeholder:text-rusty-copper/50 flex-1 focus:ring-2 focus:ring-faded-gold transition-all"
                       value={tagsStr}
                       onChange={(e) => setTagsStr(e.target.value)}
+                      onKeyDown={handleTagsKeyDown}
                     />
                     {/* Custom Magical Book Dropdown */}
                     <div ref={bookDropdownRef} className="relative">
@@ -900,15 +1025,17 @@ export function Dashboard() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <OldFriendButton onClick={() => {
-                if (!session?.user) {
-                  toast.error('请先登录账号');
-                  setAuthModalInitialMode('login');
-                  setIsAuthModalOpen(true);
-                  return;
-                }
-                setIsOldFriendOpen(true);
-              }} />
+              <OldFriendButton
+                onClick={() => {
+                  if (!session?.user) {
+                    toast.error("请先登录账号");
+                    setAuthModalInitialMode("login");
+                    setIsAuthModalOpen(true);
+                    return;
+                  }
+                  setIsOldFriendOpen(true);
+                }}
+              />
             </div>
           </div>
         </section>

@@ -13,6 +13,7 @@ import {
   LogIn,
   Search,
   Star,
+  Trash2,
   Wand2,
   X,
 } from "lucide-react";
@@ -21,7 +22,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getEntriesPaginated, getTags } from "../actions/diary";
+import { deleteEntries, getEntriesPaginated, getTags } from "../actions/diary";
 import {
   DiaryImage,
   ImagePreviewGallery,
@@ -165,6 +166,13 @@ export function Dashboard() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingMoreRef = useRef(false);
+
+  // 删除功能状态
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(
+    new Set(),
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // 关键词防抖 300ms
   useEffect(() => {
@@ -329,6 +337,31 @@ export function Dashboard() {
       .filter(Boolean);
     if (!cleaned.length) return;
     setTagsStr(`${cleaned.join(", ")}, `);
+  };
+
+  const handleDeleteEntries = async () => {
+    if (selectedForDeletion.size === 0) {
+      setIsDeleteMode(false);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const ids = Array.from(selectedForDeletion);
+      const res = await deleteEntries(ids);
+      if (res.count > 0) {
+        toast.success(`成功遗忘 ${res.count} 篇记忆`);
+        setListEntries((prev) =>
+          prev.filter((entry) => !selectedForDeletion.has(entry.id)),
+        );
+        setSelectedForDeletion(new Set());
+        setIsDeleteMode(false);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "删除失败");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // 日记保存逻辑
@@ -1025,7 +1058,7 @@ export function Dashboard() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <OldFriendButton
+              <button
                 onClick={() => {
                   if (!session?.user) {
                     toast.error("请先登录账号");
@@ -1033,10 +1066,55 @@ export function Dashboard() {
                     setIsAuthModalOpen(true);
                     return;
                   }
-                  setIsOldFriendOpen(true);
+                  if (isDeleteMode) {
+                    if (selectedForDeletion.size > 0) {
+                      handleDeleteEntries();
+                    } else {
+                      setIsDeleteMode(false);
+                    }
+                  } else {
+                    setIsDeleteMode(true);
+                    setSelectedForDeletion(new Set());
+                  }
                 }}
-              />
+                disabled={isDeleting}
+                className={cn(
+                  "relative flex items-center justify-center gap-2 px-3 py-2 rounded-md border transition-all flex-shrink-0 outline-none",
+                  isDeleteMode
+                    ? "bg-[#8B5A5A] text-[#EBE5DC] border-[#8B5A5A] hover:bg-[#7A4A4A]"
+                    : "bg-white/50 text-[#4A4540]/60 border-[#4A4540]/30 hover:bg-white/80 hover:text-[#4A4540]",
+                )}
+                title={isDeleteMode ? "执行遗忘" : "批量遗忘"}>
+                {isDeleting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-5 h-5" />
+                    {isDeleteMode && (
+                      <span className="font-['Cinzel'] font-bold text-sm">
+                        遗忘
+                      </span>
+                    )}
+                  </>
+                )}
+                {isDeleteMode && selectedForDeletion.size > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-[#4A4540] text-[#EBE5DC] text-xs font-bold flex items-center justify-center rounded-full shadow-sm">
+                    {selectedForDeletion.size}
+                  </span>
+                )}
+              </button>
             </div>
+            <OldFriendButton
+              onClick={() => {
+                if (!session?.user) {
+                  toast.error("请先登录账号");
+                  setAuthModalInitialMode("login");
+                  setIsAuthModalOpen(true);
+                  return;
+                }
+                setIsOldFriendOpen(true);
+              }}
+            />
           </div>
         </section>
 
@@ -1083,11 +1161,32 @@ export function Dashboard() {
                 exit={{ opacity: 0, scale: 0.9 }}
                 layout
                 layoutId={entry.id}
-                className="break-inside-avoid">
-                <ParchmentBox isInteractive>
+                className="break-inside-avoid relative">
+                <ParchmentBox
+                  isInteractive
+                  className={cn(
+                    "transition-all duration-300",
+                    isDeleteMode &&
+                      selectedForDeletion.has(entry.id) &&
+                      "brightness-50 scale-95",
+                  )}>
                   <div
-                    onClick={() => setViewingEntryId(entry.id)}
-                    className="flex flex-col gap-3">
+                    onClick={() => {
+                      if (isDeleteMode) {
+                        setSelectedForDeletion((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(entry.id)) {
+                            next.delete(entry.id);
+                          } else {
+                            next.add(entry.id);
+                          }
+                          return next;
+                        });
+                      } else {
+                        setViewingEntryId(entry.id);
+                      }
+                    }}
+                    className="flex flex-col gap-3 relative z-0 h-full w-full cursor-pointer">
                     <div className="flex justify-between items-start">
                       <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">
                         {entry.title ?? "Untitled"}

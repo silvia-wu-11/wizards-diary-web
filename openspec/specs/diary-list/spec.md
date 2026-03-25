@@ -141,8 +141,35 @@
 
 ---
 
+### Requirement: 首页支持批量删除日记
+系统 SHALL 在首页提供批量删除功能，允许用户进入删除模式、选择多篇日记并将其彻底删除（同时更新前端列表与数据库）。
+
+#### Scenario: 进入删除模式并选择日记
+- GIVEN 用户已登录且在首页
+- WHEN 用户点击搜索栏右侧的「删除」图标（垃圾桶）
+- THEN 系统进入批量删除模式，按钮变为暗红色且文字显示「遗忘」
+- AND 用户点击某篇日记卡片，卡片呈现暗色选中状态，且不触发详情展示
+- AND 删除按钮右上角显示当前选中的日记数量
+
+#### Scenario: 退出删除模式（未执行删除）
+- GIVEN 用户处于批量删除模式，并可能已选中部分日记
+- WHEN 用户再次点击「遗忘」按钮（若选中数量为0）或点击空白处取消状态（视具体交互而定，当前设计为点击已选中的取消，如果选为0点遗忘退出）
+- THEN 系统退出删除模式，清空所有选中状态
+- AND 按钮恢复为浅灰色的垃圾桶图标
+
+#### Scenario: 成功删除所选日记
+- GIVEN 用户处于批量删除模式，并已选中至少一篇日记
+- WHEN 用户点击「遗忘」按钮
+- THEN 系统在数据库中删除这些日记
+- AND 成功后系统退出删除模式
+- AND 从页面列表中移除被删除的日记
+- AND 弹出「成功遗忘这些记忆」或类似成功提示
+
+---
+
 ## 实现入口
 
 本规格的实现由 OpenSpec 变更驱动，详见：
 
 - [openspec/changes/diary-list-pagination-search/](../../changes/diary-list-pagination-search/) — proposal、design、tasks
+- [openspec/changes/diary-delete/](../../changes/diary-delete/) — proposal、design、tasks

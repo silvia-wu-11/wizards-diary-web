@@ -100,7 +100,7 @@ export function MagicCalendar({
                   const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
                   onSelectDate(dateStr, matchingEntry?.id); 
                 }}
-                title={hasEntry ? matchingEntry.title : undefined}
+                title={hasEntry ? (matchingEntry.title ?? undefined) : undefined}
                 className={cn(
                   "h-9 rounded-full flex items-center justify-center text-sm transition-all relative group cursor-pointer",
                   isSelected 

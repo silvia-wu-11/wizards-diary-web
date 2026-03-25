@@ -99,8 +99,23 @@
 
 ---
 
+### Requirement: 日记内容输入框支持图片粘贴上传
+系统 SHALL 支持用户在日记输入框（首页与详情页）直接粘贴图片。若剪切板内容为图片且当前图片数量未达上限，系统自动将其提取、压缩并添加到日记的图片列表中。
+
+#### Scenario: 剪切板为图片并执行粘贴
+- GIVEN 用户处于日记输入或编辑状态
+- AND 剪切板中包含图片数据
+- AND 当前日记已上传图片数量未达上限（5张）
+- WHEN 用户在输入框中触发粘贴（Ctrl+V / Cmd+V 或右键粘贴）
+- THEN 系统提取剪切板中的图片
+- AND 进行压缩处理
+- AND 将图片加入当前日记的图片列表并展示上传预览状态
+
+---
+
 ## 实现入口
 
 本规格的实现由 OpenSpec 变更驱动，详见：
 
 - [openspec/changes/diary-backend-persistence/](../../changes/diary-backend-persistence/) — proposal、design、tasks
+- [openspec/changes/image-paste-upload/](../../changes/image-paste-upload/) — 图片粘贴上传功能的 proposal、design、tasks

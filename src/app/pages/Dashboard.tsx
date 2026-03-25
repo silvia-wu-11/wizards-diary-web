@@ -35,47 +35,12 @@ import { cn, LeatherBox, MagicButton, ParchmentBox } from "../components/UI";
 import { AuthModal } from "../components/auth/AuthModal";
 import { useOnboardingContext } from "../components/onboarding/OnboardingContext";
 import { useDiaryStore } from "../store";
+import { CreateBookModal, type BookData } from "../components/CreateBookModal";
+import { ViewEntryModal } from "../components/ViewEntryModal";
 import type { OldFriendContext } from "../types/ai-chat";
 
-/**
- * 压缩图片并输出 base64，限制边长与体积
- */
-const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let { width, height } = img;
-        const maxDim = 2048;
-        if (width > maxDim || height > maxDim) {
-          const ratio = Math.min(maxDim / width, maxDim / height);
-          width *= ratio;
-          height *= ratio;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx?.drawImage(img, 0, 0, width, height);
-        let quality = 0.8;
-        let dataUrl = canvas.toDataURL("image/jpeg", quality);
-        while (
-          dataUrl.length * 0.75 > maxSizeMB * 1024 * 1024 &&
-          quality > 0.1
-        ) {
-          quality -= 0.1;
-          dataUrl = canvas.toDataURL("image/jpeg", quality);
-        }
-        resolve(dataUrl);
-      };
-      img.onerror = reject;
-    };
-    reader.onerror = reject;
-  });
-};
+import { handleImageUploadHelper, handleImagePasteHelper } from "../../lib/image";
+
 
 /**
  * Dashboard 主组件
@@ -99,9 +64,6 @@ export function Dashboard() {
     null,
   );
   const [isNewBookModalOpen, setIsNewBookModalOpen] = useState(false);
-  const [newBookName, setNewBookName] = useState("");
-  const [newBookColor, setNewBookColor] = useState("#5c2a2a");
-  const [newBookType, setNewBookType] = useState("potion");
   const [viewingEntryId, setViewingEntryId] = useState<string | null>(null);
   const [selectedFilterDateRange, setSelectedFilterDateRange] = useState<{
     from: string;
@@ -298,33 +260,7 @@ export function Dashboard() {
 
   // 图片上传与压缩
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    const availableSlots = 5 - images.length;
-    const filesToProcess = files.slice(0, availableSlots);
-    const newImages = filesToProcess.map(() => ({
-      id: Math.random().toString(36).substring(2, 9),
-      url: "",
-      loading: true,
-    }));
-    setImages((prev) => [...prev, ...newImages]);
-    for (let i = 0; i < filesToProcess.length; i++) {
-      const file = filesToProcess[i];
-      const id = newImages[i].id;
-      try {
-        const compressedUrl = await compressImage(file, 2);
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === id
-              ? { ...img, url: compressedUrl, loading: false }
-              : img,
-          ),
-        );
-      } catch {
-        setImages((prev) => prev.filter((img) => img.id === id));
-      }
-    }
-    e.target.value = "";
+    await handleImageUploadHelper(e, images, setImages, 5);
   };
 
   // 标签输入的回车分隔
@@ -451,16 +387,11 @@ export function Dashboard() {
   };
 
   // 创建日记本逻辑
-  const handleCreateBook = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newBookName.trim()) return;
+  const handleCreateBook = async (data: BookData) => {
+    if (!data.name.trim()) return;
 
     if (!session?.user) {
-      setPendingBookData({
-        name: newBookName.trim(),
-        color: newBookColor,
-        type: newBookType,
-      });
+      setPendingBookData(data);
       setAuthModalInitialMode("register");
       setIsAuthModalOpen(true);
       return;
@@ -468,26 +399,15 @@ export function Dashboard() {
 
     setIsCreatingBook(true);
     try {
-      const created = await addBook({
-        name: newBookName.trim(),
-        color: newBookColor,
-        type: newBookType,
-      });
+      const created = await addBook(data);
       toast.success("日记本已创建");
       setSelectedBook(created.id);
       onboardingCtx?.emitBookCreated();
-      setNewBookName("");
-      setNewBookColor("#5c2a2a");
-      setNewBookType("potion");
       setIsNewBookModalOpen(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "创建失败";
       if (msg === "Unauthorized" || msg.includes("未登录")) {
-        setPendingBookData({
-          name: newBookName.trim(),
-          color: newBookColor,
-          type: newBookType,
-        });
+        setPendingBookData(data);
         setAuthModalInitialMode("register");
         setIsAuthModalOpen(true);
       } else {
@@ -517,9 +437,6 @@ export function Dashboard() {
               toast.success("日记本已创建");
               setSelectedBook(created.id);
               onboardingCtx?.emitBookCreated();
-              setNewBookName("");
-              setNewBookColor("#5c2a2a");
-              setNewBookType("potion");
               setIsNewBookModalOpen(false);
             } catch (err) {
               const msg = err instanceof Error ? err.message : "创建失败";
@@ -632,6 +549,7 @@ export function Dashboard() {
                       placeholder="Dear diary, today I learned a new spell..."
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
+                      onPaste={(e) => handleImagePasteHelper(e, images, setImages, 5)}
                     />
                   </div>
                   <ImagePreviewGallery
@@ -1246,231 +1164,21 @@ export function Dashboard() {
         </section>
       </div>
 
-      <AnimatePresence>
-        {viewingEntryId && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 md:p-12"
-            onClick={() => setViewingEntryId(null)}>
-            <motion.div
-              layoutId={viewingEntryId}
-              initial={{ scale: 0.9, opacity: 0, y: 50 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 50 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="max-w-4xl w-full max-h-[90vh] flex flex-col relative"
-              onClick={(e) => e.stopPropagation()}>
-              <ParchmentBox className="p-8 md:p-12 overflow-y-auto magic-scrollbar h-full w-full rounded-lg shadow-[0_0_50px_rgba(201,184,150,0.3)]">
-                <button
-                  onClick={() => setViewingEntryId(null)}
-                  className="absolute -top-[18] right-0 text-rusty-copper/60 hover:text-vintage-burgundy transition-colors hover:scale-110 z-50 px-[8px] pt-[0px] pb-[8px]">
-                  <X className="w-8 h-8" />
-                </button>
+      <ViewEntryModal
+        entryId={viewingEntryId}
+        onClose={() => setViewingEntryId(null)}
+        entries={listEntries}
+        books={books}
+        viewingPreviewIndex={viewingPreviewIndex}
+        setViewingPreviewIndex={setViewingPreviewIndex}
+      />
 
-                {(() => {
-                  const entry = listEntries.find(
-                    (e) => e.id === viewingEntryId,
-                  );
-                  if (!entry) return null;
-                  return (
-                    <div className="flex flex-col gap-6 pt-2 min-h-full">
-                      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-rusty-copper/30 pb-6">
-                        <h2 className="text-4xl md:text-5xl font-['Cinzel'] font-bold text-vintage-burgundy leading-tight drop-shadow-sm">
-                          {entry.title ?? "Untitled"}
-                        </h2>
-                        <div className="flex items-center gap-2 text-rusty-copper font-['Cinzel'] text-xl whitespace-nowrap">
-                          <Calendar className="w-6 h-6" />
-                          {format(new Date(entry.date), "MMMM dd, yyyy")}
-                        </div>
-                      </div>
-
-                      <div className="text-2xl text-castle-stone/90 leading-relaxed font-sans whitespace-pre-wrap flex-1">
-                        {entry.content}
-                      </div>
-
-                      {(entry.imageUrls?.length ?? entry.images?.length ?? 0) >
-                        0 && (
-                        <div className="mt-2">
-                          <ImagePreviewGallery
-                            images={(entry.imageUrls ?? entry.images ?? []).map(
-                              (url) => ({ id: url, url, loading: false }),
-                            )}
-                            setImages={() => {}}
-                            isEditing={false}
-                            previewIndex={viewingPreviewIndex}
-                            setPreviewIndex={setViewingPreviewIndex}
-                            layoutStyle="flex"
-                          />
-                        </div>
-                      )}
-
-                      {(entry.bookId || entry.tags.length > 0) && (
-                        <div className="flex flex-wrap items-center gap-3 mt-8 pt-6 border-t border-rusty-copper/20">
-                          {entry.bookId &&
-                            (() => {
-                              const book = books.find(
-                                (b) => b.id === entry.bookId,
-                              );
-                              if (!book) return null;
-                              return (
-                                <span className="flex items-center gap-2 text-lg bg-vintage-burgundy/10 text-vintage-burgundy px-4 py-1 rounded-full border border-vintage-burgundy/20 shadow-sm font-['Cinzel'] font-bold">
-                                  <BookOpen className="w-5 h-5" />
-                                  {book.name}
-                                </span>
-                              );
-                            })()}
-                          {entry.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-lg bg-rusty-copper/10 text-rusty-copper px-4 py-1 rounded-full border border-rusty-copper/20 shadow-sm font-[Caveat]">
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="mt-8 text-center text-faded-gold/40 flex items-center justify-center gap-4">
-                        <div className="h-px bg-faded-gold/20 flex-1"></div>
-                        <Wand2 className="w-6 h-6" />
-                        <div className="h-px bg-faded-gold/20 flex-1"></div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </ParchmentBox>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isNewBookModalOpen && !isAuthModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={(e) =>
-              e.target === e.currentTarget && setIsNewBookModalOpen(false)
-            }>
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-[#2c2420] border-2 border-[#8B5A5A] rounded-xl shadow-2xl shadow-[#8B5A5A]/20 p-8 max-w-md w-full relative"
-              onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => setIsNewBookModalOpen(false)}
-                className="absolute top-4 right-4 text-[#C9B896]/60 hover:text-[#C9B896] transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-
-              <div className="text-center mb-8">
-                <Wand2 className="w-10 h-10 text-[#C9B896] mx-auto mb-3" />
-                <h2 className="text-3xl font-['Cinzel'] text-[#C9B896] font-bold">
-                  Conjure a New Grimoire
-                </h2>
-                <p className="text-[#C9B896]/70 font-['Caveat'] text-xl mt-2">
-                  Bind a new book to your collection
-                </p>
-              </div>
-
-              <form onSubmit={handleCreateBook} className="space-y-6">
-                <div>
-                  <label className="block font-['Cinzel'] text-[#C9B896] mb-2 font-bold">
-                    Title of the Grimoire *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newBookName}
-                    onChange={(e) => setNewBookName(e.target.value)}
-                    placeholder="e.g. Arcane Studies, Potion Recipes..."
-                    className="w-full bg-black/20 border border-[#8B5A5A]/50 rounded-lg px-4 py-3 text-[#EBE5DC] font-['Cinzel'] outline-none focus:border-[#C9B896] focus:ring-1 focus:ring-[#C9B896] placeholder:text-[#EBE5DC]/30 transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-['Cinzel'] text-[#C9B896] mb-3 font-bold">
-                    Leather Binding Dye
-                  </label>
-                  <div className="flex gap-4">
-                    {[
-                      { hex: "#5c2a2a", name: "Crimson Red" },
-                      { hex: "#2c3e50", name: "Midnight Blue" },
-                      { hex: "#1e3f20", name: "Forest Emerald" },
-                      { hex: "#8a6b22", name: "Antique Gold" },
-                      { hex: "#2c2420", name: "Ancient Brown" },
-                    ].map((color) => (
-                      <button
-                        key={color.hex}
-                        type="button"
-                        onClick={() => setNewBookColor(color.hex)}
-                        className={cn(
-                          "w-10 h-10 rounded-full border-2 transition-all hover:scale-110 shadow-lg",
-                          newBookColor === color.hex
-                            ? "border-[#C9B896] scale-110 ring-2 ring-[#C9B896]/30"
-                            : "border-black/50",
-                        )}
-                        style={{ backgroundColor: color.hex }}
-                        title={color.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-['Cinzel'] text-[#C9B896] mb-2 font-bold">
-                    Magical Discipline
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { id: "spells", label: "Spells & Charms" },
-                      { id: "potion", label: "Potions" },
-                      { id: "creatures", label: "Magical Creatures" },
-                      { id: "history", label: "History of Magic" },
-                    ].map((type) => (
-                      <button
-                        key={type.id}
-                        type="button"
-                        onClick={() => setNewBookType(type.id)}
-                        className={cn(
-                          "px-4 py-2 rounded-lg font-['Cinzel'] text-sm transition-all border",
-                          newBookType === type.id
-                            ? "bg-[#8B5A5A] border-[#C9B896] text-[#EBE5DC]"
-                            : "bg-black/20 border-[#8B5A5A]/30 text-[#C9B896]/70 hover:bg-black/40",
-                        )}>
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-[#8B5A5A]/30">
-                  <button
-                    type="submit"
-                    disabled={isCreatingBook}
-                    className="w-full bg-gradient-to-r from-[#8B5A5A] to-[#5c2a2a] hover:from-[#9c6a6a] hover:to-[#6c3a3a] disabled:from-[#5c4a4a] disabled:to-[#4c3a3a] disabled:cursor-not-allowed text-[#EBE5DC] font-['Cinzel'] font-bold text-lg py-3 rounded-lg border border-[#C9B896]/50 shadow-[0_0_15px_rgba(139,90,90,0.4)] transition-all hover:shadow-[0_0_20px_rgba(201,184,150,0.5)] flex items-center justify-center gap-2">
-                    {isCreatingBook ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        正在装订...
-                      </>
-                    ) : (
-                      <>
-                        <BookOpen className="w-5 h-5" />
-                        密封装订
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <CreateBookModal
+        isOpen={isNewBookModalOpen && !isAuthModalOpen}
+        onClose={() => setIsNewBookModalOpen(false)}
+        onCreate={handleCreateBook}
+        isCreating={isCreatingBook}
+      />
     </div>
   );
 }

@@ -20,7 +20,6 @@ import {
   X,
   Loader2,
   Plus,
-  Flame,
 } from "lucide-react";
 import { AuthModal } from "../components/auth/AuthModal";
 import {
@@ -36,43 +35,11 @@ import {
 import { MagicCalendar } from "../components/MagicCalendar";
 import { OldFriendChatDrawer } from "../components/OldFriendChat/OldFriendChatDrawer";
 import type { OldFriendContext } from "../types/ai-chat";
+import { SearchResultModal } from "../components/SearchResultModal";
+import { DeleteBookModal } from "../components/DeleteBookModal";
+import { ActionButton } from "../components/ActionButton";
 
-const compressImage = (file: File, maxSizeMB: number = 2): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let { width, height } = img;
-        const maxDim = 2048;
-        if (width > maxDim || height > maxDim) {
-          const ratio = Math.min(maxDim / width, maxDim / height);
-          width *= ratio;
-          height *= ratio;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx?.drawImage(img, 0, 0, width, height);
-        let quality = 0.8;
-        let dataUrl = canvas.toDataURL("image/jpeg", quality);
-        while (
-          dataUrl.length * 0.75 > maxSizeMB * 1024 * 1024 &&
-          quality > 0.1
-        ) {
-          quality -= 0.1;
-          dataUrl = canvas.toDataURL("image/jpeg", quality);
-        }
-        resolve(dataUrl);
-      };
-      img.onerror = reject;
-    };
-    reader.onerror = reject;
-  });
-};
+import { handleImageUploadHelper, handleImagePasteHelper } from "../../lib/image";
 
 export function DiaryView({
   id,
@@ -135,36 +102,7 @@ export function DiaryView({
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    const availableSlots = 6 - images.length;
-    if (availableSlots <= 0) return;
-
-    const filesToProcess = files.slice(0, availableSlots);
-    const newImages = filesToProcess.map(() => ({
-      id: Math.random().toString(36).substring(2, 9),
-      url: "",
-      loading: true,
-    }));
-    setImages((prev) => [...prev, ...newImages]);
-
-    for (let i = 0; i < filesToProcess.length; i++) {
-      const file = filesToProcess[i];
-      const id = newImages[i].id;
-      try {
-        const compressedUrl = await compressImage(file, 2);
-        setImages((prev) =>
-          prev.map((img) =>
-            img.id === id
-              ? { ...img, url: compressedUrl, loading: false }
-              : img,
-          ),
-        );
-      } catch {
-        setImages((prev) => prev.filter((img) => img.id !== id));
-      }
-    }
-    e.target.value = "";
+    await handleImageUploadHelper(e, images, setImages, 6);
   };
 
   // Update edit state if navigating to a different entry
@@ -794,6 +732,7 @@ export function DiaryView({
                         ref={contentTextareaRef}
                         value={editContent}
                         onChange={(e) => setEditContent(e.target.value)}
+                        onPaste={(e) => handleImagePasteHelper(e, images, setImages, 5)}
                         placeholder="Let your magic flow through the quill..."
                         className="w-full flex-1 min-h-[400px] font-['Caveat'] text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide bg-transparent outline-none resize-none placeholder-[#2c2420]/30"
                         autoFocus={isNewEntry}
@@ -1032,72 +971,17 @@ export function DiaryView({
       </footer>
 
       {/* Search Result Modal - 多条匹配时展示列表供选择 */}
-      <AnimatePresence>
-        {showSearchResultModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-[#1a1412]/90 backdrop-blur-md flex items-center justify-center p-4"
-            onClick={() => setShowSearchResultModal(false)}>
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg max-h-[80vh] bg-[#2c2420] rounded-xl border-2 border-faded-gold/40 shadow-[0_0_40px_rgba(201,184,150,0.2)] overflow-hidden flex flex-col"
-              onClick={(e) => e.stopPropagation()}>
-              <div
-                className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay"
-                style={{
-                  backgroundImage:
-                    'url("https://www.transparenttextures.com/patterns/aged-paper.png")',
-                }}
-              />
-              <div className="relative p-6 flex flex-col flex-1 min-h-0">
-                <h3 className="text-xl font-['Cinzel'] font-bold text-faded-gold mb-4">
-                  选择要跳转的日记
-                </h3>
-                <div className="flex-1 overflow-y-auto magic-scrollbar space-y-2 pr-2">
-                  {searchResultModalEntries.map((e) => (
-                    <button
-                      key={e.id}
-                      onClick={() => {
-                        router.push(`/diary/${e.id}?open=1`);
-                        setShowSearchResultModal(false);
-                        setSearchKeyword("");
-                        setIsSearchOpen(false);
-                      }}
-                      className="w-full text-left p-4 rounded-lg bg-white/5 border border-faded-gold/20 hover:bg-white/10 hover:border-faded-gold/40 transition-all group">
-                      <div className="font-['Cinzel'] text-faded-gold font-medium truncate">
-                        {e.title || "（无标题）"}
-                      </div>
-                      <div className="text-sm text-[#C9B896]/70 mt-1">
-                        {format(new Date(e.date), "yyyy-MM-dd")}
-                      </div>
-                      {e.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {e.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="text-xs px-2 py-0.5 rounded-full bg-rusty-copper/20 text-rusty-copper border border-rusty-copper/30">
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => setShowSearchResultModal(false)}
-                  className="mt-4 px-4 py-2 rounded-full border border-faded-gold/30 text-faded-gold hover:bg-faded-gold/10 transition-colors font-['Cinzel'] text-sm">
-                  取消
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <SearchResultModal
+        isOpen={showSearchResultModal}
+        onClose={() => setShowSearchResultModal(false)}
+        entries={searchResultModalEntries}
+        onSelectEntry={(e) => {
+          router.push(`/diary/${e.id}?open=1`);
+          setShowSearchResultModal(false);
+          setSearchKeyword("");
+          setIsSearchOpen(false);
+        }}
+      />
 
       <OldFriendChatDrawer
         open={isOldFriendOpen}
@@ -1123,122 +1007,13 @@ export function DiaryView({
       />
 
       {/* Magical Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-[#1a1412]/90 backdrop-blur-md flex items-center justify-center p-4"
-            onClick={() => setShowDeleteConfirm(false)}>
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-[#2c2420] rounded-xl border-2 border-faded-gold/40 shadow-[0_0_40px_rgba(153,27,27,0.4)] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}>
-              {/* Parchment texture background */}
-              <div
-                className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay"
-                style={{
-                  backgroundImage:
-                    'url("https://www.transparenttextures.com/patterns/aged-paper.png")',
-                }}></div>
-
-              <div className="relative p-8 flex flex-col items-center text-center">
-                {/* Magical Fire Element */}
-                <div className="relative mb-6">
-                  <motion.div
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.5, 0.8, 0.5],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    className="absolute inset-0 bg-red-500/30 blur-xl rounded-full"
-                  />
-                  <motion.div
-                    animate={{ y: [0, -5, 0] }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}>
-                    <Flame className="w-16 h-16 text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
-                  </motion.div>
-                </div>
-
-                <h3 className="text-2xl font-serif text-faded-gold mb-3 font-bold tracking-wide">
-                  Obliviate Diary?
-                </h3>
-
-                <p className="text-[#d4c5b0] mb-8 font-serif">
-                  Are you sure you want to banish this entire diary to the void?
-                  This spell cannot be undone, and all memories within will be
-                  lost forever.
-                </p>
-
-                <div className="flex gap-4 w-full justify-center">
-                  <button
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="px-6 py-2.5 rounded-full border border-faded-gold/30 text-faded-gold hover:bg-faded-gold/10 transition-colors font-serif">
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    disabled={isDeletingBook}
-                    className="px-6 py-2.5 rounded-full bg-red-900/40 border border-red-500/50 text-red-300 hover:bg-red-800/60 hover:text-white hover:border-red-400 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] disabled:opacity-70 disabled:cursor-not-allowed transition-all font-serif flex items-center gap-2 group">
-                    {isDeletingBook ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        删除中...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                        Yes
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <DeleteBookModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDelete}
+        isDeleting={isDeletingBook}
+      />
     </div>
     </>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  onClick,
-  className,
-  disabled,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-  className?: string;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 rounded-full border-2 border-[#C9B896]/60 bg-[#2c2420]/90 text-[#C9B896] hover:bg-[#C9B896]/20 hover:border-[#C9B896] hover:text-white transition-all backdrop-blur-sm group font-['Cinzel'] font-bold shadow-[0_4px_15px_rgba(0,0,0,0.5)]",
-        className,
-      )}>
-      <span className="group-hover:scale-110 group-hover:-rotate-12 transition-transform">
-        {icon}
-      </span>
-      <span className="hidden sm:inline">{label}</span>
-    </button>
   );
 }

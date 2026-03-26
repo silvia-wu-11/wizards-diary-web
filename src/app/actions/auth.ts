@@ -12,7 +12,7 @@ export type RegisterResult =
 export async function register(formData: FormData): Promise<RegisterResult> {
   try {
     const raw = {
-      email: formData.get('email') as string,
+      username: formData.get('username') as string,
       password: formData.get('password') as string,
       confirmPassword: formData.get('confirmPassword') as string,
       name: (formData.get('name') as string) || undefined,
@@ -23,21 +23,21 @@ export async function register(formData: FormData): Promise<RegisterResult> {
       const first = parsed.error.issues[0];
       const msg = first?.message ?? '请求参数无效';
       if (msg.includes('两次密码')) return { success: false, error: '两次密码不一致' };
-      if (msg.includes('邮箱')) return { success: false, error: msg };
+      if (msg.includes('账号')) return { success: false, error: msg };
       if (msg.includes('密码')) return { success: false, error: msg };
       return { success: false, error: msg };
     }
 
-    const { email, password, name } = parsed.data;
+    const { username, password, name } = parsed.data;
 
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({ where: { username } });
     if (existing) {
-      return { success: false, error: '该邮箱已被注册' };
+      return { success: false, error: '该账号已被注册' };
     }
 
     const passwordHash = await hashPassword(password);
     await prisma.user.create({
-      data: { email, passwordHash, name: name || null },
+      data: { username, passwordHash, name: name || null },
     });
 
     // 不在此处 signIn：Server Action 中设置的 cookie 可能无法正确传递到客户端
@@ -47,7 +47,7 @@ export async function register(formData: FormData): Promise<RegisterResult> {
     console.error('[register]', err);
     const message = err instanceof Error ? err.message : '注册失败';
     if (message.includes('Unique constraint') || message.includes('unique')) {
-      return { success: false, error: '该邮箱已被注册' };
+      return { success: false, error: '该账号已被注册' };
     }
     if (message.includes('connect') || message.includes('database')) {
       return { success: false, error: '数据库连接失败，请检查 DATABASE_URL 配置' };

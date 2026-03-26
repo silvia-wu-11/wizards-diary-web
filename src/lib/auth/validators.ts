@@ -2,10 +2,9 @@ import { z } from 'zod';
 
 /** 登录表单校验 */
 export const signInSchema = z.object({
-  email: z
+  username: z
     .string()
-    .min(1, '请输入邮箱')
-    .email('邮箱格式不正确'),
+    .min(1, '请输入账号'),
   password: z
     .string()
     .min(1, '请输入密码'),
@@ -13,10 +12,11 @@ export const signInSchema = z.object({
 
 /** 注册表单校验（服务端） */
 export const registerSchema = z.object({
-  email: z
+  username: z
     .string()
-    .min(1, '请输入邮箱')
-    .email('邮箱格式不正确'),
+    .min(3, '账号至少 3 个字符')
+    .max(20, '账号最多 20 个字符')
+    .regex(/^[a-zA-Z0-9_]+$/, '账号只能包含字母、数字和下划线'),
   password: z
     .string()
     .min(8, '密码至少 8 位')

@@ -39,22 +39,22 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
   }, [open, initialMode]);
 
   // Login state
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   function resetForm() {
-    setEmail('');
+    setUsername('');
     setPassword('');
     setConfirmPassword('');
     setName('');
-    setEmailError('');
+    setUsernameError('');
     setPasswordError('');
     setConfirmPasswordError('');
     setFormError('');
@@ -70,14 +70,14 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setEmailError('');
+    setUsernameError('');
     setPasswordError('');
     setFormError('');
 
-    const parsed = signInSchema.safeParse({ email, password });
+    const parsed = signInSchema.safeParse({ username, password });
     if (!parsed.success) {
       const flattened = z.flattenError(parsed.error);
-      setEmailError(flattened.fieldErrors.email?.[0] ?? '');
+      setUsernameError(flattened.fieldErrors.username?.[0] ?? '');
       setPasswordError(flattened.fieldErrors.password?.[0] ?? '');
       return;
     }
@@ -85,12 +85,12 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
     setIsLoading(true);
     try {
       const result = await signIn('credentials', {
-        email: parsed.data.email,
+        username: parsed.data.username,
         password: parsed.data.password,
         redirect: false,
       });
       if (result?.error) {
-        setFormError('邮箱或密码错误');
+        setFormError('账号或密码错误');
         return;
       }
       if (result?.ok) {
@@ -108,19 +108,19 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    setEmailError('');
+    setUsernameError('');
     setConfirmPasswordError('');
     setFormError('');
 
     const parsed = registerSchema.safeParse({
-      email,
+      username,
       password,
       confirmPassword,
       name: name || undefined,
     });
     if (!parsed.success) {
       const flattened = z.flattenError(parsed.error);
-      setEmailError(flattened.fieldErrors.email?.[0] ?? '');
+      setUsernameError(flattened.fieldErrors.username?.[0] ?? '');
       setConfirmPasswordError(
         flattened.fieldErrors.confirmPassword?.[0] ?? flattened.formErrors?.[0] ?? ''
       );
@@ -131,14 +131,14 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
     setIsLoading(true);
     try {
       const formData = new FormData();
-      formData.set('email', email);
+      formData.set('username', username);
       formData.set('password', password);
       formData.set('confirmPassword', confirmPassword);
       if (name) formData.set('name', name);
 
       const result = await register(formData);
       if (!result.success) {
-        if (result.error.includes('邮箱')) setEmailError(result.error);
+        if (result.error.includes('账号')) setUsernameError(result.error);
         else if (result.error.includes('密码')) setConfirmPasswordError(result.error);
         else setFormError(result.error);
         return;
@@ -147,7 +147,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
       // 注册成功后自动登录并跳转到首页
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const signInResult: any = await signIn('credentials', {
-        email: parsed.data.email,
+        username: parsed.data.username,
         password: parsed.data.password,
         callbackUrl: '/',
         redirect: true,
@@ -180,7 +180,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
           {session ? (
             <div className="space-y-4">
               <p className="text-parchment-white/80">
-                已登录为 <span className="text-faded-gold">{session.user?.email}</span>
+                已登录为 <span className="text-faded-gold">{session.user?.username}</span>
               </p>
               <Button
                 variant="outline"
@@ -209,17 +209,17 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
           {!session && mode === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="auth-email">邮箱</Label>
+                <Label htmlFor="auth-username">账号</Label>
                 <Input
-                  id="auth-email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="auth-username"
+                  type="text"
+                  placeholder="你的账号"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="bg-parchment-white/10 border-rusty-copper text-parchment-white"
-                  aria-invalid={!!emailError}
+                  aria-invalid={!!usernameError}
                 />
-                {emailError && <p className="text-sm text-red-300">{emailError}</p>}
+                {usernameError && <p className="text-sm text-red-300">{usernameError}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="auth-password">密码</Label>
@@ -243,17 +243,17 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="auth-email">邮箱</Label>
+                <Label htmlFor="auth-username">账号</Label>
                 <Input
-                  id="auth-email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="auth-username"
+                  type="text"
+                  placeholder="你的账号"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="bg-parchment-white/10 border-rusty-copper text-parchment-white"
-                  aria-invalid={!!emailError}
+                  aria-invalid={!!usernameError}
                 />
-                {emailError && <p className="text-sm text-red-300">{emailError}</p>}
+                {usernameError && <p className="text-sm text-red-300">{usernameError}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="auth-password">密码</Label>

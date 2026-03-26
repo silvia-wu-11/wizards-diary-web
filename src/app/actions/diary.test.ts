@@ -43,18 +43,18 @@ const mockEntryId = 'entry-789';
 
 describe('diary Server Actions', () => {
   beforeEach(() => {
-    // @ts-expect-error - Mocking overloaded function
     vi.mocked(auth).mockResolvedValue({
-      user: { id: mockUserId, email: 'test@example.com', name: 'Test' },
-      expires: '',
-    });
+      user: { id: mockUserId, username: 'testuser', name: 'Test' },
+      expires: '9999-12-31T23:59:59.999Z',
+    } as any);
   });
 
   describe('getDiaryData', () => {
-    it('未登录时抛出 Unauthorized', async () => {
+    it('未登录时返回空数据', async () => {
       // @ts-expect-error - Mocking overloaded function
       vi.mocked(auth).mockResolvedValue(null);
-      await expect(getDiaryData()).rejects.toThrow('Unauthorized');
+      const result = await getDiaryData();
+      expect(result).toEqual({ books: [], entries: [] });
     });
 
     it('已登录时返回当前用户的 books 与 entries', async () => {

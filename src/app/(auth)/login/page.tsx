@@ -17,23 +17,23 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/';
 
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setEmailError('');
+    setUsernameError('');
     setPasswordError('');
     setFormError('');
 
-    const parsed = signInSchema.safeParse({ email, password });
+    const parsed = signInSchema.safeParse({ username, password });
     if (!parsed.success) {
       const flattened = z.flattenError(parsed.error);
-      setEmailError(flattened.fieldErrors.email?.[0] ?? '');
+      setUsernameError(flattened.fieldErrors.username?.[0] ?? '');
       setPasswordError(flattened.fieldErrors.password?.[0] ?? '');
       return;
     }
@@ -41,13 +41,13 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const result = await signIn('credentials', {
-        email: parsed.data.email,
+        username: parsed.data.username,
         password: parsed.data.password,
         redirect: false,
       });
 
       if (result?.error) {
-        setFormError('邮箱或密码错误');
+        setFormError('账号或密码错误');
         return;
       }
       if (result?.ok) {
@@ -82,22 +82,22 @@ export default function LoginPage() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">邮箱</Label>
+          <Label htmlFor="username">账号</Label>
           <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="your@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            placeholder="你的账号"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             className="bg-parchment-white/10 border-rusty-copper text-parchment-white placeholder:text-parchment-white/50"
-            aria-invalid={!!emailError}
-            aria-describedby={emailError ? 'email-error' : undefined}
+            aria-invalid={!!usernameError}
+            aria-describedby={usernameError ? 'username-error' : undefined}
           />
-          {emailError && (
-            <p id="email-error" className="text-sm text-red-300">
-              {emailError}
+          {usernameError && (
+            <p id="username-error" className="text-sm text-red-300">
+              {usernameError}
             </p>
           )}
         </div>

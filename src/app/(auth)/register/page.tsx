@@ -18,23 +18,23 @@ export default function RegisterPage() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("from") || "/";
 
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
-  const [emailError, setEmailError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
   const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [formError, setFormError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setEmailError("");
+    setUsernameError("");
     setConfirmPasswordError("");
     setFormError("");
 
     const parsed = registerSchema.safeParse({
-      email,
+      username,
       password,
       confirmPassword,
       name: name || undefined,
@@ -42,7 +42,7 @@ export default function RegisterPage() {
 
     if (!parsed.success) {
       const flattened = z.flattenError(parsed.error);
-      setEmailError(flattened.fieldErrors.email?.[0] ?? "");
+      setUsernameError(flattened.fieldErrors.username?.[0] ?? "");
       setConfirmPasswordError(
         flattened.fieldErrors.confirmPassword?.[0] ??
           flattened.formErrors?.[0] ??
@@ -56,7 +56,7 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       const formData = new FormData();
-      formData.set("email", email);
+      formData.set("username", username);
       formData.set("password", password);
       formData.set("confirmPassword", confirmPassword);
       if (name) formData.set("name", name);
@@ -64,7 +64,7 @@ export default function RegisterPage() {
       const result = await register(formData);
 
       if (!result.success) {
-        if (result.error.includes("邮箱")) setEmailError(result.error);
+        if (result.error.includes("账号")) setUsernameError(result.error);
         else if (result.error.includes("密码"))
           setConfirmPasswordError(result.error);
         else setFormError(result.error);
@@ -72,7 +72,7 @@ export default function RegisterPage() {
       }
       // 注册成功后自动登录并跳转到首页
       const signInResult = await signIn("credentials", {
-        email: parsed.data.email,
+        username: parsed.data.username,
         password: parsed.data.password,
         redirect: false,
       });
@@ -118,19 +118,19 @@ export default function RegisterPage() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">邮箱</Label>
+          <Label htmlFor="username">账号</Label>
           <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="your@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="username"
+            name="username"
+            type="text"
+            autoComplete="username"
+            placeholder="你的账号"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
             className="bg-parchment-white/10 border-rusty-copper text-parchment-white placeholder:text-parchment-white/50"
-            aria-invalid={!!emailError}
+            aria-invalid={!!usernameError}
           />
-          {emailError && <p className="text-sm text-red-300">{emailError}</p>}
+          {usernameError && <p className="text-sm text-red-300">{usernameError}</p>}
         </div>
 
         <div className="space-y-2">

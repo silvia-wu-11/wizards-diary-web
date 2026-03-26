@@ -9,22 +9,22 @@ test.describe('Auth', () => {
 
   test('登录页展示表单和切换到创建账号入口', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByLabel('邮箱')).toBeVisible();
+    await expect(page.getByLabel('账号')).toBeVisible();
     await expect(page.getByPlaceholder('••••••••')).toBeVisible();
     await expect(page.getByRole('button', { name: '登录' })).toBeVisible();
     await expect(page.getByRole('link', { name: /切换到创建账号/i })).toBeVisible();
   });
 
-  test('未填邮箱时点击登录展示错误', async ({ page }) => {
+  test('未填账号时点击登录展示错误', async ({ page }) => {
     await page.goto('/login');
     await page.getByPlaceholder('••••••••').fill('password123');
     await page.getByRole('button', { name: '登录' }).click();
-    await expect(page.getByText(/请输入邮箱/i)).toBeVisible();
+    await expect(page.getByText(/请输入账号/i)).toBeVisible();
   });
 
   test('未填密码时点击登录展示错误', async ({ page }) => {
     await page.goto('/login');
-    await page.getByLabel('邮箱').fill('test@example.com');
+    await page.getByLabel('账号').fill('testuser');
     await page.getByRole('button', { name: '登录' }).click();
     await expect(page.getByText(/请输入密码/i)).toBeVisible();
   });
@@ -55,7 +55,7 @@ test.describe('Auth', () => {
 
   test('两次密码不一致时展示错误', async ({ page }) => {
     await page.goto('/register');
-    await page.getByLabel('邮箱').fill('new@example.com');
+    await page.getByLabel('账号').fill('newuser');
     await page.getByPlaceholder('至少 8 位').fill('password123');
     await page.getByPlaceholder('再次输入密码').fill('different');
     await page.getByRole('button', { name: '创建账号' }).click();

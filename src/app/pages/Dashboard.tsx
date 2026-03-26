@@ -488,7 +488,7 @@ export function Dashboard() {
             className="absolute top-0 right-0 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
             aria-label={session ? "账户" : "登录或创建账号"}>
             <LogIn className="size-4" />
-            {session ? session?.user?.email : "login"}
+            {session ? session?.user?.username : "login"}
           </button>
           <motion.div
             initial={{ opacity: 0, y: -20 }}

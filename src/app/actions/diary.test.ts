@@ -46,7 +46,7 @@ describe('diary Server Actions', () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: mockUserId, username: 'testuser', name: 'Test' },
       expires: '9999-12-31T23:59:59.999Z',
-    } as any);
+    } as never);
   });
 
   describe('getDiaryData', () => {

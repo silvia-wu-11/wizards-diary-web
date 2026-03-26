@@ -4,13 +4,13 @@ import { useRef } from "react";
 
 import { cn } from "@/app/components/UI";
 import type { ChatMessage, OldFriendContext } from "@/app/types/ai-chat";
-import { Send, X } from "lucide-react";
+import { Send, User, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 
 /**
- * 初始欢迎消息：作为 AI（老朋友）的开场白
+ * 初始欢迎消息：作为 AI（CHUM）的开场白
  */
 const INITIAL_MESSAGE: ChatMessage = {
   role: "assistant",
@@ -84,7 +84,7 @@ function parseSSEChunk(line: string): {
 }
 
 /**
- * 老朋友聊天抽屉组件
+ * CHUM 聊天抽屉组件
  * 支持展开/收起动画、消息列表展示、输入发送、流式响应解析
  */
 export function OldFriendChatDrawer({
@@ -94,6 +94,9 @@ export function OldFriendChatDrawer({
 }: OldFriendChatDrawerProps) {
   const STREAM_FLUSH_INTERVAL_MS = 40;
   const STREAM_METRICS_KEY = "oldFriendStreamMetrics";
+  const DRAWER_WIDTH_KEY = "oldFriendDrawerWidth";
+  const MIN_DRAWER_WIDTH = 320;
+  const MAX_DRAWER_WIDTH = 800;
   /** 对话消息列表，包含 user 和 assistant 角色的消息 */
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   /** 流式响应内容：正在接收的 AI 回复（逐字更新） */
@@ -105,10 +108,14 @@ export function OldFriendChatDrawer({
   /** 是否正在等待 AI 回复 */
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [drawerWidth, setDrawerWidth] = useState(448);
   /** 当前 Session 的 response_id，用于多轮对话串联 */
   const [responseId, setResponseId] = useState<string | null>(null);
   const responseIdRef = useRef<string | null>(null);
   const initRequestStartedRef = useRef(false);
+  const isResizingRef = useRef(false);
+  const resizeStartXRef = useRef(0);
+  const resizeStartWidthRef = useRef(0);
   /** Session 是否已初始化（已发送过带 instructions 的初始化请求） */
   const [isSessionInitialized, setIsSessionInitialized] = useState(false);
   /** 消息列表滚动容器引用，用于自动滚动到底部 */
@@ -142,6 +149,76 @@ export function OldFriendChatDrawer({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    let storedWidth: number | null = null;
+    try {
+      const raw = localStorage.getItem(DRAWER_WIDTH_KEY);
+      if (raw) storedWidth = Number(raw);
+    } catch {}
+    const baseWidth =
+      storedWidth && Number.isFinite(storedWidth) ? storedWidth : 448;
+    const maxWidth = Math.min(MAX_DRAWER_WIDTH, window.innerWidth);
+    const clampedWidth = Math.max(
+      MIN_DRAWER_WIDTH,
+      Math.min(maxWidth, baseWidth),
+    );
+    setDrawerWidth(clampedWidth);
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    const handleWindowResize = () => {
+      setDrawerWidth((prev) => Math.min(prev, window.innerWidth));
+    };
+    window.addEventListener("resize", handleWindowResize);
+    return () => window.removeEventListener("resize", handleWindowResize);
+  }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    try {
+      localStorage.setItem(DRAWER_WIDTH_KEY, String(drawerWidth));
+    } catch {}
+  }, [drawerWidth, isMounted]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!isResizingRef.current) return;
+      const delta = resizeStartXRef.current - event.clientX;
+      const nextWidth = resizeStartWidthRef.current + delta;
+      const maxWidth = Math.min(MAX_DRAWER_WIDTH, window.innerWidth);
+      const clampedWidth = Math.max(
+        MIN_DRAWER_WIDTH,
+        Math.min(maxWidth, nextWidth),
+      );
+      setDrawerWidth(clampedWidth);
+    };
+
+    const handlePointerUp = () => {
+      if (!isResizingRef.current) return;
+      isResizingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [MAX_DRAWER_WIDTH, MIN_DRAWER_WIDTH]);
+
+  const handleResizeStart = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    isResizingRef.current = true;
+    resizeStartXRef.current = event.clientX;
+    resizeStartWidthRef.current = drawerWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  };
 
   /**
    * 抽屉打开时，立即发起初始化请求建立 Session 缓存
@@ -570,15 +647,20 @@ export function OldFriendChatDrawer({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 z-[91] w-full max-w-md bg-[#2c2420] border-l-2 border-faded-gold/40 shadow-2xl flex flex-col">
+            style={{ width: drawerWidth }}
+            className="fixed right-0 top-0 bottom-0 z-[91] bg-[#2c2420] border-l-2 border-faded-gold/40 shadow-2xl flex flex-col">
+            <div
+              onPointerDown={handleResizeStart}
+              className="absolute left-0 top-0 h-full w-2 cursor-col-resize"
+            />
             <div className="flex items-center justify-between p-4 border-b border-faded-gold/20">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-faded-gold/20 flex items-center justify-center text-faded-gold text-xl">
-                  ✦
+                  <User size={20} strokeWidth={2.5} />
                 </div>
                 <div>
                   <h2 className="font-['Cinzel'] font-bold text-faded-gold">
-                    老朋友
+                    CHUM
                   </h2>
                   <p className="text-xs text-faded-gold/60">
                     基于你的日记与你对话

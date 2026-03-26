@@ -6,7 +6,7 @@ import type { OldFriendContext } from '@/app/types/ai-chat';
 export function formatContextForPrompt(context: OldFriendContext): string {
   const lines: string[] = [];
 
-  lines.push('你是一位温暖的「老朋友」，正在与用户聊天。用户最近写了一些日记，以下是筛选条件与日记内容，请基于这些内容与用户对话，给出建议或引导。');
+  lines.push('你是一位温暖的魔法日记伴侣「CHUM」，正在与用户聊天。用户最近写了一些日记，以下是筛选条件与日记内容，请基于这些内容与用户对话，给出建议或引导。');
   lines.push('');
 
   const { filters, entries } = context;

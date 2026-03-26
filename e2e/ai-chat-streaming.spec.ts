@@ -12,7 +12,7 @@ test.describe("AI Chat Streaming", () => {
     await page.getByRole("button", { name: "登录" }).click();
     await page.waitForURL(/\/(?!login)/, { timeout: 30000 });
 
-    const openButton = page.getByRole("button", { name: "与老朋友对话" });
+    const openButton = page.getByRole("button", { name: "与 CHUM 对话" });
     await expect(openButton).toBeVisible({ timeout: 30000 });
     await openButton.click();
 

@@ -4,7 +4,7 @@ import { useRef } from "react";
 
 import { cn } from "@/app/components/UI";
 import type { ChatMessage, OldFriendContext } from "@/app/types/ai-chat";
-import { Send, User, X } from "lucide-react";
+import { Send, SmilePlus, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
@@ -131,6 +131,19 @@ export function OldFriendChatDrawer({
       behavior: "smooth",
     });
   }, [messages, streamingContent]);
+
+  /**
+   * 抽屉打开时，禁止背景页面滚动
+   */
+  useEffect(() => {
+    if (open) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [open]);
 
   /**
    * 抽屉关闭时重置 Session
@@ -656,7 +669,7 @@ export function OldFriendChatDrawer({
             <div className="flex items-center justify-between p-4 border-b border-faded-gold/20">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-faded-gold/20 flex items-center justify-center text-faded-gold text-xl">
-                  <User size={20} strokeWidth={2.5} />
+                  <SmilePlus size={26} strokeWidth={2.5} />
                 </div>
                 <div>
                   <h2 className="font-['Cinzel'] font-bold text-faded-gold">

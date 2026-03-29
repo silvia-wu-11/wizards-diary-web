@@ -5,20 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "dotenv -e .env.local -e .env -- prisma generate && next build",
+    "build": "dotenv -e .env -- prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest",
-    "test:run": "vitest run",
+    "test": "vitest run",
     "test:e2e": "playwright test",
-    "db:generate": "dotenv -e .env.local -e .env -- prisma generate",
-    "db:migrate": "dotenv -e .env.local -e .env -- prisma migrate dev",
-    "db:push": "dotenv -e .env.local -e .env -- prisma db push"
+    "db:generate": "dotenv -e .env -- prisma generate",
+    "db:migrate": "dotenv -e .env -- prisma migrate dev",
+    "db:push": "dotenv -e .env -- prisma db push",
+    "db:compensate-vectors": "dotenv -e .env -- tsx scripts/compensate-vectors.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.6",
     "@radix-ui/react-label": "2.1.2",
     "@radix-ui/react-slot": "1.1.2",
+    "@sentry/nextjs": "^10",
     "@supabase/supabase-js": "^2.98.0",
     "base64-arraybuffer": "^1.0.2",
     "bcryptjs": "^3.0.3",
@@ -69,6 +70,7 @@
     "prisma": "^5.22.0",
     "supertest": "^7.0.0",
     "tailwindcss": "4.1.12",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vite-tsconfig-paths": "^5.1.0",
     "vitest": "^2.1.6"

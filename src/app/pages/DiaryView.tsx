@@ -71,10 +71,15 @@ export function DiaryView({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState("");
   const [showSearchResultModal, setShowSearchResultModal] = useState(false);
-  const [searchResultModalEntries, setSearchResultModalEntries] = useState<
-    DiaryEntry[]
-  >([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResultModalExactEntries, setSearchResultModalExactEntries] =
+    useState<DiaryEntry[]>([]);
+  const [
+    searchResultModalSemanticEntries,
+    setSearchResultModalSemanticEntries,
+  ] = useState<DiaryEntry[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeletingBook, setIsDeletingBook] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -263,14 +268,43 @@ export function DiaryView({
       ? bookEntries[currentIndex + 1]
       : null;
 
-  const handleSearchEnter = () => {
-    if (!searchKeyword.trim()) return;
-    if (bookEntries.length === 0) {
-      toast.info("无匹配结果");
-      return;
+  // 关键词防抖 1000ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchKeyword(searchKeyword), 1000);
+    return () => clearTimeout(t);
+  }, [searchKeyword]);
+
+  useEffect(() => {
+    if (debouncedSearchKeyword) {
+      handleSearchEnter();
     }
-    setSearchResultModalEntries(bookEntries);
-    setShowSearchResultModal(true);
+  }, [debouncedSearchKeyword]);
+
+  const handleSearchEnter = async () => {
+    if (!searchKeyword.trim() || !currentBookId) return;
+
+    setIsSearching(true);
+    try {
+      const { searchBookEntries } = await import("../actions/diary");
+      const { exactMatches, semanticMatches } = await searchBookEntries(
+        currentBookId,
+        searchKeyword.trim(),
+      );
+
+      if (exactMatches.length === 0 && semanticMatches.length === 0) {
+        toast.info("无匹配结果");
+        return;
+      }
+
+      setSearchResultModalExactEntries(exactMatches as DiaryEntry[]);
+      setSearchResultModalSemanticEntries(semanticMatches as DiaryEntry[]);
+      setShowSearchResultModal(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("搜索失败，请稍后重试");
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   useEffect(() => {
@@ -967,7 +1001,7 @@ export function DiaryView({
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      handleSearchEnter();
+                      setDebouncedSearchKeyword(searchKeyword);
                     }
                   }}
                   className="flex-1 bg-white/10 border border-faded-gold/40 rounded-full py-2 pl-4 pr-4 outline-none focus:ring-2 focus:ring-faded-gold/50 text-faded-gold placeholder:text-faded-gold/40 font-['Cinzel'] text-sm"
@@ -992,7 +1026,8 @@ export function DiaryView({
         <SearchResultModal
           isOpen={showSearchResultModal}
           onClose={() => setShowSearchResultModal(false)}
-          entries={searchResultModalEntries}
+          entries={searchResultModalExactEntries}
+          semanticEntries={searchResultModalSemanticEntries}
           onSelectEntry={(e) => {
             router.push(`/diary/${e.id}?open=1`);
             setShowSearchResultModal(false);

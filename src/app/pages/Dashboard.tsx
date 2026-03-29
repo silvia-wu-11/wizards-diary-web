@@ -121,6 +121,7 @@ export function Dashboard() {
 
   // 分页列表状态
   const [listEntries, setListEntries] = useState<typeof entries>([]);
+  const [semanticEntries, setSemanticEntries] = useState<typeof entries>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingEntries, setIsLoadingEntries] = useState(false);
@@ -136,9 +137,9 @@ export function Dashboard() {
   );
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // 关键词防抖 300ms
+  // 关键词防抖 1000ms
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    const t = setTimeout(() => setDebouncedSearchQuery(searchQuery), 1000);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
@@ -181,6 +182,7 @@ export function Dashboard() {
   useEffect(() => {
     if (!session?.user) return;
     setListEntries([]);
+    setSemanticEntries([]);
     setNextCursor(null);
     setHasMore(true);
     setIsLoadingEntries(true);
@@ -194,11 +196,15 @@ export function Dashboard() {
     })
       .then((res) => {
         setListEntries(res.entries);
+        if (res.semanticEntries) {
+          setSemanticEntries(res.semanticEntries);
+        }
         setNextCursor(res.nextCursor);
         setHasMore(res.hasMore);
       })
       .catch(() => {
         setListEntries([]);
+        setSemanticEntries([]);
         setNextCursor(null);
         setHasMore(false);
       })
@@ -488,7 +494,7 @@ export function Dashboard() {
             className="absolute top-0 right-0 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
             aria-label={session ? "账户" : "登录或创建账号"}>
             <LogIn className="size-4" />
-            {session ? session?.user?.username : "login"}
+            {session ? session?.user?.name : "login"}
           </button>
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -848,6 +854,12 @@ export function Dashboard() {
                   className="w-full bg-white/50 border border-[#4A4540]/30 rounded-full py-2 pl-10 pr-4 outline-none focus:ring-2 focus:ring-[#8B5A5A] text-xl font-['Caveat'] placeholder:text-[#4A4540]/50 transition-colors hover:bg-white/80"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setDebouncedSearchQuery(searchQuery);
+                    }
+                  }}
                 />
               </div>
               <button
@@ -1013,14 +1025,100 @@ export function Dashboard() {
             ))}
           </AnimatePresence>
 
-          {!isLoadingEntries && listEntries.length === 0 && (
-            <div className="col-span-full text-center py-20">
-              <Wand2 className="w-16 h-16 text-faded-gold/50 mx-auto mb-4 block" />
-              <p className="text-2xl text-faded-gold/70 font-['Caveat'] pt-10 block">
-                No magical records found...
-              </p>
+          {!isLoadingEntries &&
+            listEntries.length === 0 &&
+            semanticEntries.length === 0 && (
+              <div className="col-span-full text-center py-20">
+                <Wand2 className="w-16 h-16 text-faded-gold/50 mx-auto mb-4 block" />
+                <p className="text-2xl text-faded-gold/70 font-['Caveat'] pt-10 block">
+                  No magical records found...
+                </p>
+              </div>
+            )}
+
+          {semanticEntries.length > 0 && (
+            <div className="col-span-full mt-8 mb-4 break-inside-avoid">
+              <div className="flex items-center gap-4 opacity-80">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-faded-gold/50 to-transparent"></div>
+                <div className="flex items-center gap-2 text-faded-gold font-['Cinzel'] text-lg">
+                  <Wand2 className="w-5 h-5" />
+                  <span>✨ 魔杖感应到了相关的记忆...</span>
+                </div>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-faded-gold/50 to-transparent"></div>
+              </div>
             </div>
           )}
+          <AnimatePresence>
+            {semanticEntries.map((entry) => (
+              <motion.div
+                key={entry.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                layout
+                layoutId={`semantic-${entry.id}`}
+                className="break-inside-avoid relative opacity-90 hover:opacity-100 transition-opacity">
+                <ParchmentBox
+                  isInteractive
+                  className={cn(
+                    "transition-all duration-300 border-dashed border-2 border-faded-gold/30",
+                    isDeleteMode &&
+                      selectedForDeletion.has(entry.id) &&
+                      "brightness-50 scale-95",
+                  )}>
+                  <div
+                    onClick={() => {
+                      if (isDeleteMode) {
+                        setSelectedForDeletion((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(entry.id)) {
+                            next.delete(entry.id);
+                          } else {
+                            next.add(entry.id);
+                          }
+                          return next;
+                        });
+                      } else {
+                        setViewingEntryId(entry.id);
+                      }
+                    }}
+                    className="flex flex-col gap-3 relative z-0 h-full w-full cursor-pointer">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-['Cinzel'] font-bold text-2xl text-vintage-burgundy leading-tight mb-1">
+                        {entry.title ?? ""}
+                      </h3>
+                      <span className="text-sm font-['Cinzel'] text-rusty-copper/70 flex-shrink-0 ml-2">
+                        {format(new Date(entry.date), "MMM dd")}
+                      </span>
+                    </div>
+
+                    <p className="text-xl text-castle-stone/90 line-clamp-4 leading-relaxed">
+                      {entry.content}
+                    </p>
+
+                    {entry.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {entry.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-sm bg-rusty-copper/10 text-rusty-copper px-2 py-0.5 rounded-full border border-rusty-copper/20 font-[Caveat]">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mt-2 flex justify-between items-center w-full">
+                      <span className="text-xs text-faded-gold/60 font-['Caveat']">
+                        语义相关
+                      </span>
+                      <BookOpen className="w-5 h-5 text-faded-gold inline-block" />
+                    </div>
+                  </div>
+                </ParchmentBox>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
           <div
             ref={sentinelRef}

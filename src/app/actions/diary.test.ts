@@ -6,10 +6,16 @@ import {
   updateEntry,
   deleteEntry,
   deleteBook,
+  getEntriesPaginated,
+  searchBookEntries,
 } from './diary';
 
 vi.mock('@/auth', () => ({
   auth: vi.fn(),
+}));
+
+vi.mock('next/server', () => ({
+  after: vi.fn((cb: () => void) => { cb(); }),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -34,8 +40,23 @@ vi.mock('@/lib/supabase/storage', () => ({
   uploadImages: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock('@/lib/embedding/create', () => ({
+  vectorizeDiaryEntry: vi.fn(),
+}));
+
+vi.mock('@/lib/embedding/search', () => ({
+  searchRelatedDiaries: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('@/lib/memory/update', () => ({
+  updateCoreMemoryFromDiary: vi.fn(),
+}));
+
 import { auth } from '@/auth';
 import { prisma } from '@/lib/db';
+import { vectorizeDiaryEntry } from '@/lib/embedding/create';
+import { searchRelatedDiaries } from '@/lib/embedding/search';
+import { updateCoreMemoryFromDiary } from '@/lib/memory/update';
 
 const mockUserId = 'user-123';
 const mockBookId = 'book-456';
@@ -47,6 +68,75 @@ describe('diary Server Actions', () => {
       user: { id: mockUserId, username: 'testuser', name: 'Test' },
       expires: '9999-12-31T23:59:59.999Z',
     } as never);
+  });
+
+  describe('getEntriesPaginated', () => {
+    it('返回带语义搜索的分页结果', async () => {
+      const mockEntries = [
+        {
+          id: mockEntryId,
+          bookId: mockBookId,
+          title: 'Test',
+          content: 'Exact Match',
+          date: new Date(),
+          tags: [],
+          imageUrls: [],
+        },
+      ];
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue(mockEntries as never);
+      vi.mocked(searchRelatedDiaries).mockResolvedValue([
+        {
+          id: 'semantic-id-1',
+          bookId: mockBookId,
+          title: 'Test Semantic',
+          content: 'Semantic Match',
+          date: new Date(),
+          tags: [],
+          imageUrls: [],
+        },
+      ] as never);
+
+      const result = await getEntriesPaginated({ keyword: 'Match' });
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].content).toBe('Exact Match');
+      expect(result.semanticEntries).toHaveLength(1);
+      expect(result.semanticEntries![0].content).toBe('Semantic Match');
+      expect(searchRelatedDiaries).toHaveBeenCalledWith(mockUserId, 'Match', 10, undefined);
+    });
+  });
+
+  describe('searchBookEntries', () => {
+    it('返回日记本内的精确和语义匹配结果', async () => {
+      const mockExactEntries = [
+        {
+          id: mockEntryId,
+          bookId: mockBookId,
+          title: 'Exact',
+          content: 'Match Content',
+          date: new Date(),
+          tags: [],
+          imageUrls: [],
+        },
+      ];
+      vi.mocked(prisma.diaryEntry.findMany).mockResolvedValue(mockExactEntries as never);
+      vi.mocked(searchRelatedDiaries).mockResolvedValue([
+        {
+          id: 'semantic-id-2',
+          bookId: mockBookId,
+          title: 'Semantic',
+          content: 'Related Content',
+          date: new Date(),
+          tags: [],
+          imageUrls: [],
+        },
+      ] as never);
+
+      const result = await searchBookEntries(mockBookId, 'Content');
+      expect(result.exactMatches).toHaveLength(1);
+      expect(result.semanticMatches).toHaveLength(1);
+      expect(result.semanticMatches[0].id).toBe('semantic-id-2');
+      expect(searchRelatedDiaries).toHaveBeenCalledWith(mockUserId, 'Content', 5, mockBookId);
+    });
   });
 
   describe('getDiaryData', () => {
@@ -185,6 +275,88 @@ describe('diary Server Actions', () => {
       await expect(
         updateEntry(mockEntryId, { content: 'Updated' })
       ).rejects.toThrow('日记不存在或无权访问');
+    });
+
+    it('更新内容时触发重组向量和更新核心记忆', async () => {
+      vi.mocked(prisma.diaryEntry.findFirst).mockResolvedValue({
+        id: mockEntryId,
+        bookId: mockBookId,
+        title: 'Old Title',
+        content: 'Old Content',
+        date: new Date(),
+        tags: [],
+        imageUrls: [],
+        vectorized: true,
+      } as never);
+      vi.mocked(prisma.diaryEntry.update).mockResolvedValue({
+        id: mockEntryId,
+        bookId: mockBookId,
+        title: 'Old Title',
+        content: 'New Content',
+        date: new Date(),
+        tags: [],
+        imageUrls: [],
+        vectorized: false,
+      } as never);
+
+      const { vectorizeDiaryEntry } = await import('@/lib/embedding/create');
+      const { updateCoreMemoryFromDiary } = await import('@/lib/memory/update');
+
+      await updateEntry(mockEntryId, { content: 'New Content' });
+
+      // 验证内容变更时 vectorized 标记重置
+      expect(prisma.diaryEntry.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            content: 'New Content',
+            vectorized: false,
+          }),
+        })
+      );
+
+      // after 函数由于是 mock 的，直接执行了传入的 cb，因此这里能够立即校验到后续异步调用
+      expect(vectorizeDiaryEntry).toHaveBeenCalledWith(mockEntryId, 'New Content');
+      expect(updateCoreMemoryFromDiary).toHaveBeenCalledWith(mockUserId, 'New Content');
+    });
+
+    it('未更新内容时不触发重组向量', async () => {
+      vi.mocked(prisma.diaryEntry.findFirst).mockResolvedValue({
+        id: mockEntryId,
+        bookId: mockBookId,
+        title: 'Old Title',
+        content: 'Same Content',
+        date: new Date(),
+        tags: [],
+        imageUrls: [],
+        vectorized: true,
+      } as never);
+      vi.mocked(prisma.diaryEntry.update).mockResolvedValue({
+        id: mockEntryId,
+        bookId: mockBookId,
+        title: 'New Title',
+        content: 'Same Content',
+        date: new Date(),
+        tags: [],
+        imageUrls: [],
+        vectorized: true,
+      } as never);
+
+      const { vectorizeDiaryEntry } = await import('@/lib/embedding/create');
+      vi.mocked(vectorizeDiaryEntry).mockClear();
+
+      await updateEntry(mockEntryId, { title: 'New Title' });
+
+      // 验证内容没有变化时没有修改 vectorized
+      expect(prisma.diaryEntry.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({
+            content: expect.anything(),
+            vectorized: expect.anything(),
+          }),
+        })
+      );
+
+      expect(vectorizeDiaryEntry).not.toHaveBeenCalled();
     });
   });
 

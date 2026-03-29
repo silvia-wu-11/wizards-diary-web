@@ -3,25 +3,33 @@
 // 生成 Client: pnpm prisma generate
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]  // PostgreSQL 扩展在正式支持前需要通过预览特性启用
 }
 
 datasource db {
-  provider  = "postgresql"        // 数据库类型
-  url       = env("DATABASE_URL") // 给 应用 用
-  directUrl = env("DIRECT_URL")   // 给 migrate 用
+  provider   = "postgresql"         // 数据库类型
+  url        = env("DATABASE_URL")  // 给 应用 用
+  directUrl  = env("DIRECT_URL")    // 给 migrate 用
+  extensions = [vector]             // 启用 pgvector 扩展，用于存储 AI 生成的向量嵌入（支持语义搜索）
 }
 
+/// 用户模型
+/// 存储用户账户信息，包括认证凭据和个人偏好设置
 model User {
   id           String      @id @default(cuid())
   username     String      @unique
   passwordHash String
   name         String?
+  coreMemory   Json?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime   @updatedAt
   books        DiaryBook[]
 }
 
+/// 日记本模型
+/// 用户创建的日记本，用于组织日记条目
+/// 支持自定义名称、颜色和类型（如：日常、旅途、工作等）
 model DiaryBook {
   id        String      @id @default(cuid())
   userId    String
@@ -37,6 +45,9 @@ model DiaryBook {
   @@index([userId])
 }
 
+/// 日记条目模型
+/// 存储单篇日记的完整信息，包括文本内容、图片、标签等
+/// 支持 AI 向量检索（embedding 字段用于语义搜索）
 model DiaryEntry {
   id         String   @id @default(cuid())
   bookId     String
@@ -45,10 +56,26 @@ model DiaryEntry {
   date       DateTime
   tags       String[]
   imageUrls  String[]
+  vectorized Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  book DiaryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  book   DiaryBook    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  chunks DiaryChunk[]
 
   @@index([bookId])
+}
+
+/// 日记分块模型
+/// 用于存储日记文本片段及其向量表示，支持高精度语义检索
+model DiaryChunk {
+  id         String   @id @default(cuid())
+  entryId    String
+  chunkIndex Int
+  content    String
+  embedding  Unsupported("vector(1024)")
+
+  entry DiaryEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@index([entryId])
 }

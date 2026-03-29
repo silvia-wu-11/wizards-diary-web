@@ -17,10 +17,10 @@
 
 "use server";
 
-import { prisma } from "@/lib/db";
-import { buildMemoryExtractionPrompt } from "@/lib/memory/prompt";
-import { mergeCoreMemory } from "@/lib/memory/merge";
 import type { CoreMemory } from "@/app/types/core-memory";
+import { prisma } from "@/lib/db";
+import { mergeCoreMemory } from "@/lib/memory/merge";
+import { buildMemoryExtractionPrompt } from "@/lib/memory/prompt";
 
 /** 提炼任务使用的模型 Endpoint ID（与对话共用火山方舟账号） */
 const MEMORY_EXTRACTION_MODEL = "ep-20260325172108-n42bd";
@@ -34,7 +34,7 @@ const MEMORY_EXTRACTION_MODEL = "ep-20260325172108-n42bd";
  */
 async function callLLMToExtract(
   systemPrompt: string,
-  diaryContent: string
+  diaryContent: string,
 ): Promise<Partial<CoreMemory>> {
   const apiKey = process.env.HUOSHAN_MODEL_API_KEY;
   if (!apiKey) throw new Error("HUOSHAN_MODEL_API_KEY not configured");
@@ -59,7 +59,7 @@ async function callLLMToExtract(
         max_tokens: 1024,
         temperature: 0.3, // 低温度保证提炼结果稳定，避免幻觉
       }),
-    }
+    },
   );
 
   if (!res.ok) {
@@ -76,7 +76,7 @@ async function callLLMToExtract(
     // LLM 返回非 JSON 时静默忽略，不阻塞流程
     console.error(
       "[memory/update] Failed to parse LLM response as JSON:",
-      text
+      text,
     );
     return {};
   }
@@ -92,7 +92,7 @@ async function callLLMToExtract(
  */
 export async function updateCoreMemoryFromDiary(
   userId: string,
-  diaryContent: string
+  diaryContent: string,
 ): Promise<void> {
   try {
     // ① 读取当前 Core Memory（null 时使用初始空结构）
@@ -107,7 +107,7 @@ export async function updateCoreMemoryFromDiary(
     // ② 构建提炼 prompt
     const systemPrompt = buildMemoryExtractionPrompt(
       currentMemory,
-      diaryContent
+      diaryContent,
     );
 
     // ③ 调用 LLM 提炼增量信息
@@ -119,7 +119,8 @@ export async function updateCoreMemoryFromDiary(
     // ⑤ 写回数据库
     await prisma.user.update({
       where: { id: userId },
-      data: { coreMemory: merged },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { coreMemory: merged as any },
     });
 
     console.log(`[memory/update] Core memory updated for user ${userId}`);
@@ -127,7 +128,7 @@ export async function updateCoreMemoryFromDiary(
     // 静默失败：记录日志但不向调用方抛出，不影响日记保存流程
     console.error(
       `[memory/update] Failed to update core memory for user ${userId}:`,
-      err
+      err,
     );
   }
 }

@@ -24,5 +24,5 @@ export async function getCoreMemory(userId: string): Promise<CoreMemory | null> 
   });
 
   if (!user?.coreMemory) return null;
-  return user.coreMemory as CoreMemory;
+  return user.coreMemory as unknown as CoreMemory;
 }

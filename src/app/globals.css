@@ -41,20 +41,24 @@
 
   .magic-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-faded-gold) var(--color-rusty-copper);
+    scrollbar-color: rgba(201, 184, 150, 0.6) transparent;
   }
   .magic-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   .magic-scrollbar::-webkit-scrollbar-track {
-    background: var(--color-rusty-copper);
-    border-radius: 4px;
+    background: transparent;
+    margin: 8px 0;
   }
   .magic-scrollbar::-webkit-scrollbar-thumb {
-    background-color: var(--color-faded-gold);
-    border-radius: 4px;
-    border: 2px solid var(--color-rusty-copper);
+    background-color: rgba(201, 184, 150, 0.6);
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .magic-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(201, 184, 150, 0.9);
   }
 
   .magic-glow:hover {

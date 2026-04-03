@@ -41,6 +41,7 @@ export function MagicCalendar({
   const [currentMonth, setCurrentMonth] = useState(() =>
     currentDate ? new Date(currentDate) : new Date(),
   );
+
   const calendarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,7 +50,15 @@ export function MagicCalendar({
         calendarRef.current &&
         !calendarRef.current.contains(event.target as Node)
       ) {
-        onClose?.();
+        // Only close if we clicked outside both the calendar AND the button that toggles it
+        // The button click is handled in the parent component
+        const target = event.target as HTMLElement;
+        const isToggleButton = target.closest("button[aria-haspopup='dialog']") || 
+                              target.closest("header button"); // Fallback check for the specific header button
+                              
+        if (!isToggleButton) {
+          onClose?.();
+        }
       }
     }
     document.addEventListener("mousedown", handleClickOutside);

@@ -52,6 +52,16 @@ export function OnboardingOverlay({
   const rafRef = useRef<number>();
 
   useEffect(() => {
+    if (visible) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [visible]);
+
+  useEffect(() => {
     if (!visible) return;
 
     const updateTargetRect = () => {

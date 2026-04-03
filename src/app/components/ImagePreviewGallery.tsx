@@ -61,6 +61,16 @@ export function ImagePreviewGallery({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [previewIndex, images.length, setPreviewIndex]);
 
+  useEffect(() => {
+    if (previewIndex !== null) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [previewIndex]);
+
   if (images.length === 0) return null;
 
   return (

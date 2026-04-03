@@ -30,14 +30,20 @@ export async function register(formData: FormData): Promise<RegisterResult> {
 
     const { username, password, name } = parsed.data;
 
-    const existing = await prisma.user.findUnique({ where: { username } });
+    const existing = await prisma.user.findUnique({
+      where: { accountId: username },
+    });
     if (existing) {
       return { success: false, error: '该账号已被注册' };
     }
 
     const passwordHash = await hashPassword(password);
     await prisma.user.create({
-      data: { username, passwordHash, name: name || null },
+      data: {
+        accountId: username,
+        passwordHash,
+        nickname: name || null,
+      },
     });
 
     // 不在此处 signIn：Server Action 中设置的 cookie 可能无法正确传递到客户端

@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { BookOpen, Calendar, Wand2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import React from "react";
+import React, { useEffect } from "react";
 import type { DiaryEntry } from "../store";
 import { ImagePreviewGallery } from "./ImagePreviewGallery";
 import { ParchmentBox } from "./UI";
@@ -24,6 +24,16 @@ export function ViewEntryModal({
   setViewingPreviewIndex,
 }: ViewEntryModalProps) {
   const entry = entries.find((e) => e.id === entryId);
+
+  useEffect(() => {
+    if (entryId) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [entryId]);
 
   return (
     <AnimatePresence>

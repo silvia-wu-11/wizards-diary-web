@@ -31,7 +31,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const { username, password } = parsed.data;
 
         // 2. 检查用户是否存在
-        const user = await prisma.user.findUnique({ where: { username } });
+        const user = await prisma.user.findUnique({
+          where: { accountId: username },
+        });
         if (!user) return null;
 
         // 3. 验证密码 Hash 是否匹配
@@ -41,8 +43,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // 4. 返回的用户对象将被传递给 jwt callback
         return {
           id: user.id,
-          username: user.username,
-          name: user.name ?? undefined,
+          username: user.accountId,
+          name: user.nickname ?? undefined,
         };
       },
     }),

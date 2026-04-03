@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Wand2, BookOpen, Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "./UI";
@@ -25,6 +25,16 @@ export function CreateBookModal({
   const [newBookName, setNewBookName] = useState("");
   const [newBookColor, setNewBookColor] = useState("#5c2a2a");
   const [newBookType, setNewBookType] = useState("potion");
+
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

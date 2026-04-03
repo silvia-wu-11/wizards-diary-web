@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { AnimatePresence, motion } from "motion/react";
+import { useEffect } from "react";
 import type { DiaryEntry } from "../store";
 
 interface SearchResultModalProps {
@@ -17,6 +18,16 @@ export function SearchResultModal({
   semanticEntries = [],
   onSelectEntry,
 }: SearchResultModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (

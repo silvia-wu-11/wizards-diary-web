@@ -89,7 +89,7 @@ export function DiaryView({
   const isNewEntry = id === "new";
   const [isEditing, setIsEditing] = useState(isNewEntry);
 
-  const calendarRef = useRef<HTMLDivElement>(null);
+  const calendarRef = useRef<HTMLButtonElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const entry = isNewEntry ? null : entries.find((e) => e.id === id);
@@ -275,6 +275,16 @@ export function DiaryView({
   }, [searchKeyword]);
 
   useEffect(() => {
+    if (isSearchOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [isSearchOpen]);
+
+  useEffect(() => {
     if (debouncedSearchKeyword) {
       handleSearchEnter();
     }
@@ -298,6 +308,7 @@ export function DiaryView({
 
       setSearchResultModalExactEntries(exactMatches as DiaryEntry[]);
       setSearchResultModalSemanticEntries(semanticMatches as DiaryEntry[]);
+      setIsSearchOpen(false);
       setShowSearchResultModal(true);
     } catch (err) {
       console.error(err);
@@ -341,22 +352,8 @@ export function DiaryView({
   }, [initialFocusContent, isOpen, isEditing]);
 
   // Handle clicking outside to close calendar
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        calendarRef.current &&
-        !calendarRef.current.contains(event.target as Node)
-      ) {
-        setIsCalendarOpen(false);
-      }
-    }
-    if (isCalendarOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isCalendarOpen]);
+  // Note: the actual click outside logic is handled inside MagicCalendar component
+  // to avoid conflicts with state updates when clicking internal elements like prev/next month
 
   // Keyboard left/right navigation for page turning（保持书本翻开）
   useEffect(() => {
@@ -391,11 +388,11 @@ export function DiaryView({
         initialMode="login"
         onClose={() => {}}
       />
-      <div className="min-h-screen bg-[#2c2420] text-parchment-white flex flex-col font-sans overflow-hidden relative">
+      <div className="h-screen w-screen bg-[#2c2420] text-parchment-white flex flex-col font-sans overflow-hidden relative">
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1518118237096-3c22df574888?ixlib=rb-4.1.0&q=80')] bg-cover opacity-10 mix-blend-overlay pointer-events-none" />
 
         {/* Top Navigation */}
-        <header className="flex justify-between items-center z-50 sticky top-0 bg-[#2c2420]/80 backdrop-blur-md border-b border-faded-gold/20 px-[24px] py-[16px] mx-[0px] mt-[0px] mb-[20px] gap-4 flex-wrap">
+        <header className="flex justify-between items-center z-50 sticky top-0 bg-[#2c2420]/80 backdrop-blur-md border-b border-faded-gold/20 px-[24px] py-[16px] mx-[0px] mt-[0px] gap-4 flex-wrap">
           <button
             onClick={() => {
               loadData();
@@ -409,8 +406,9 @@ export function DiaryView({
           </button>
 
           {isOpen && (
-            <div className="relative" ref={calendarRef}>
+            <div className="relative">
               <button
+                ref={calendarRef}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsCalendarOpen(!isCalendarOpen);
@@ -455,8 +453,8 @@ export function DiaryView({
         </header>
 
         {/* Center 3D Book Area */}
-        <main className="flex-1 flex items-center justify-center p-4 sm:p-8 relative perspective-1000 z-10 overflow-visible mx-[24px] my-[20px]">
-          <div className="relative w-full max-w-5xl h-[70vh] flex justify-center items-center perspective-[2000px]">
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-8 relative perspective-1000 z-10 overflow-hidden mx-[24px] my-[20px] min-h-0">
+          <div className="relative w-full max-w-5xl h-full flex justify-center items-center perspective-[2000px]">
             <AnimatePresence mode="wait">
               {!isOpen ? (
                 // STATE A: Closed Book
@@ -621,7 +619,7 @@ export function DiaryView({
                       : { duration: 0.8, type: "spring", bounce: 0.3 }
                   }
                   style={{ transformStyle: "preserve-3d" }}
-                  className="w-full max-w-6xl h-[80vh] flex flex-col md:flex-row relative shadow-[0_40px_80px_rgba(0,0,0,0.9)] origin-center">
+                  className="w-full max-w-7xl h-full flex flex-col md:flex-row relative shadow-[0_40px_80px_rgba(0,0,0,0.9)] origin-center">
                   {/* Book Background (Leather Cover extended) */}
                   <div className="absolute -inset-4 bg-leather rounded-lg -z-30 border-[6px] border-[#1a1412] shadow-2xl hidden md:block p-[0px]">
                     <div className="absolute inset-0 bg-black/40 rounded-lg pointer-events-none" />
@@ -636,14 +634,14 @@ export function DiaryView({
                   <div className="hidden md:block absolute top-1 bottom-1 -right-1 w-4 bg-parchment rounded-r-md border-y border-r border-black/20 shadow-[1px_0_3px_rgba(0,0,0,0.2)] -z-10" />
 
                   {/* Left Page (Details & Tags) */}
-                  <div className="flex-1 bg-parchment relative rounded-l-md md:border-r border-black/20 p-8 md:p-14 overflow-hidden shadow-[inset_-15px_0_30px_rgba(0,0,0,0.15)] group/left">
+                  <div className="flex-1 bg-parchment relative rounded-l-md md:border-r border-black/20 overflow-hidden shadow-[inset_-15px_0_30px_rgba(0,0,0,0.15)] group/left">
                     <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-black/5 via-transparent to-black/10" />
 
                     <motion.div
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.4 }}
-                      className="h-full flex flex-col relative z-10">
+                      className="h-full flex flex-col relative z-10 p-8 md:p-14 mr-4">
                       <div className="flex items-center gap-2 text-rusty-copper/60 font-['Cinzel'] mb-4 font-bold text-sm tracking-widest uppercase">
                         <span>Memory Date:</span>
                         <span>
@@ -660,10 +658,10 @@ export function DiaryView({
                           value={editTitle}
                           onChange={(e) => setEditTitle(e.target.value)}
                           placeholder="Name this memory..."
-                          className="font-['Cinzel'] text-3xl lg:text-4xl text-vintage-burgundy font-bold mb-8 border-b-2 border-vintage-burgundy/20 pb-6 leading-tight drop-shadow-sm bg-transparent outline-none w-full placeholder-vintage-burgundy/30"
+                          className="font-['Cinzel'] text-3xl lg:text-4xl text-vintage-burgundy font-bold mb-4 border-b-2 border-vintage-burgundy/20 pb-1 leading-tight drop-shadow-sm bg-transparent outline-none w-full placeholder-vintage-burgundy/30"
                         />
                       ) : (
-                        <h1 className="font-['Cinzel'] text-3xl lg:text-4xl text-vintage-burgundy font-bold mb-8 border-b-2 border-vintage-burgundy/20 pb-6 leading-tight drop-shadow-sm">
+                        <h1 className="font-['Cinzel'] text-3xl lg:text-4xl text-vintage-burgundy font-bold mb-4 border-b-2 border-vintage-burgundy/20 pb-1 leading-tight drop-shadow-sm">
                           {isNewEntry
                             ? "A New Memory"
                             : (entry?.title ?? "Untitled")}
@@ -671,7 +669,8 @@ export function DiaryView({
                       )}
 
                       {/* Magical Illustration Placeholder based on tags or just decorative */}
-                      <div className="w-full flex-1 min-h-[200px] border-2 border-dashed border-vintage-burgundy/20 rounded-xl mb-8 flex flex-col items-center justify-center bg-black/5 opacity-80 mix-blend-multiply relative overflow-hidden">
+
+                      <div className="w-full flex-1 min-h-[200px] border-2 border-dashed border-vintage-burgundy/20 rounded-xl mb-4 flex flex-col items-center justify-center bg-black/5 opacity-80 mix-blend-multiply relative overflow-hidden">
                         {images.length > 0 ? (
                           <ImagePreviewGallery
                             images={images}
@@ -689,85 +688,29 @@ export function DiaryView({
                           </>
                         )}
                       </div>
-
-                      {isEditing && (
-                        <div className="mb-4 flex justify-center">
-                          {images.length >= 6 ? (
-                            <div className="px-4 py-2 flex items-center gap-2 text-rusty-copper/60 bg-rusty-copper/10 rounded-full border border-rusty-copper/20 cursor-not-allowed">
-                              <ImageIcon className="w-5 h-5" />
-                              <span className="font-['Cinzel'] font-bold text-sm">
-                                Maximum 6 images
-                              </span>
-                            </div>
-                          ) : (
-                            <label className="px-4 py-2 flex items-center gap-2 text-rusty-copper hover:text-white bg-rusty-copper/10 hover:bg-rusty-copper rounded-full border border-rusty-copper/40 hover:border-rusty-copper transition-all cursor-pointer font-['Cinzel'] font-bold text-sm shadow-sm group">
-                              <input
-                                type="file"
-                                className="hidden"
-                                accept="image/*"
-                                multiple
-                                onChange={handleImageUpload}
-                              />
-                              <ImageIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                              <span>Add Magical Image</span>
-                            </label>
-                          )}
+                      {isEditing && images.length < 6 && (
+                        <div className="flex justify-center mb-2">
+                          <label className="px-4 py-1 flex items-center gap-1 text-rusty-copper hover:text-white bg-rusty-copper/10 hover:bg-rusty-copper rounded-full border border-rusty-copper/40 hover:border-rusty-copper transition-all cursor-pointer font-['Cinzel'] font-bold text-sm shadow-sm group">
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              multiple
+                              onChange={handleImageUpload}
+                            />
+                            <ImageIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            <span>Add Image</span>
+                          </label>
                         </div>
                       )}
-                    </motion.div>
 
-                    {/* Decorative Corner */}
-                    <div className="absolute bottom-6 left-6 w-20 h-20 border-l-[3px] border-b-[3px] border-vintage-burgundy/20 rounded-bl-2xl pointer-events-none" />
-                    <div className="absolute top-6 left-6 w-20 h-20 border-l-[3px] border-t-[3px] border-vintage-burgundy/20 rounded-tl-2xl pointer-events-none" />
-                  </div>
-
-                  {/* Center fold shadow */}
-                  <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-16 -translate-x-1/2 bg-gradient-to-r from-black/10 via-black/40 to-black/10 z-20 pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]" />
-                  {/* Stitching binding in the middle */}
-                  <div className="hidden md:flex absolute left-1/2 top-10 bottom-10 -translate-x-1/2 w-2 flex-col justify-between py-8 z-30 pointer-events-none opacity-60">
-                    {[...Array(6)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-full h-1 bg-parchment-white shadow-sm rotate-[-10deg]"
-                      />
-                    ))}
-                  </div>
-
-                  {/* Right Page (Content) */}
-                  <div className="flex-1 bg-parchment relative rounded-r-md p-8 md:p-14 overflow-y-auto magic-scrollbar shadow-[inset_15px_0_30px_rgba(0,0,0,0.15)] group/right flex flex-col">
-                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-l from-black/5 via-transparent to-black/10" />
-
-                    <motion.div
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 }}
-                      className="relative z-10 flex-1 flex flex-col">
-                      {isEditing ? (
-                        <textarea
-                          ref={contentTextareaRef}
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          onPaste={(e) =>
-                            handleImagePasteHelper(e, images, setImages, 5)
-                          }
-                          placeholder="Let your magic flow through the quill..."
-                          className="w-full flex-1 min-h-[400px] font-['Caveat'] text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide bg-transparent outline-none resize-none placeholder-[#2c2420]/30"
-                          autoFocus={isNewEntry}
-                        />
-                      ) : (
-                        <p className="font-['Caveat'] flex-1 text-3xl leading-[2.2] text-[#2c2420] whitespace-pre-wrap tracking-wide pb-12">
-                          {isNewEntry
-                            ? "Click the edit button below to write your first entry in this magical diary..."
-                            : entry?.content}
-                        </p>
-                      )}
-
+                      {/* Tags (Left Page Bottom) */}
                       {isEditing ? (
                         <motion.div
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          className="mt-auto pt-6 border-t border-vintage-burgundy/10">
-                          <div className="flex flex-wrap gap-2 mb-4">
+                          className="mt-auto pt-3 border-t border-vintage-burgundy/10">
+                          <div className="flex flex-wrap items-center gap-2">
                             <AnimatePresence>
                               {editTags.map((tag) => (
                                 <motion.span
@@ -795,29 +738,29 @@ export function DiaryView({
                                 </motion.span>
                               ))}
                             </AnimatePresence>
-                          </div>
-                          <div className="relative group/tag-input">
-                            <input
-                              type="text"
-                              value={tagInput}
-                              onChange={(e) => setTagInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && tagInput.trim()) {
-                                  e.preventDefault();
-                                  const newTag = tagInput.trim();
-                                  if (!editTags.includes(newTag)) {
-                                    setEditTags([...editTags, newTag]);
+                            <div className="relative group/tag-input flex-1 min-w-[200px]">
+                              <input
+                                type="text"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && tagInput.trim()) {
+                                    e.preventDefault();
+                                    const newTag = tagInput.trim();
+                                    if (!editTags.includes(newTag)) {
+                                      setEditTags([...editTags, newTag]);
+                                    }
+                                    setTagInput("");
                                   }
-                                  setTagInput("");
-                                }
-                              }}
-                              placeholder="Summon new tags... (Press Enter)"
-                              className="w-full bg-transparent border-b-2 border-vintage-burgundy/20 pb-2 font-['Cinzel'] text-vintage-burgundy placeholder-vintage-burgundy/40 outline-none transition-all z-10 relative focus:border-transparent"
-                            />
-                            {/* Magical Glowing Line */}
-                            <div className="absolute bottom-0 left-0 h-[2px] w-full bg-transparent group-focus-within/tag-input:bg-rusty-copper transition-colors duration-300" />
-                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] w-0 bg-rusty-copper group-focus-within/tag-input:w-full group-focus-within/tag-input:shadow-[0_0_15px_2px_rgba(184,93,25,0.6)] transition-all duration-500 opacity-0 group-focus-within/tag-input:opacity-100" />
-                            <Wand2 className="absolute right-2 top-0 w-4 h-4 text-vintage-burgundy/30 group-focus-within/tag-input:text-rusty-copper transition-colors duration-500 group-focus-within/tag-input:drop-shadow-[0_0_5px_rgba(184,93,25,0.8)] opacity-0 group-focus-within/tag-input:opacity-100 -rotate-12" />
+                                }}
+                                placeholder="Summon new tags... (Press Enter)"
+                                className="w-full bg-transparent border-b-2 border-vintage-burgundy/20 pb-1 pt-1 font-['Cinzel'] text-vintage-burgundy placeholder-vintage-burgundy/40 outline-none transition-all z-10 relative focus:border-transparent"
+                              />
+                              {/* Magical Glowing Line */}
+                              <div className="absolute bottom-0 left-0 h-[2px] w-full bg-transparent group-focus-within/tag-input:bg-rusty-copper transition-colors duration-300" />
+                              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[2px] w-0 bg-rusty-copper group-focus-within/tag-input:w-full group-focus-within/tag-input:shadow-[0_0_15px_2px_rgba(184,93,25,0.6)] transition-all duration-500 opacity-0 group-focus-within/tag-input:opacity-100" />
+                              <Wand2 className="absolute right-2 top-0 w-4 h-4 text-vintage-burgundy/30 group-focus-within/tag-input:text-rusty-copper transition-colors duration-500 group-focus-within/tag-input:drop-shadow-[0_0_5px_rgba(184,93,25,0.8)] opacity-0 group-focus-within/tag-input:opacity-100 -rotate-12" />
+                            </div>
                           </div>
                         </motion.div>
                       ) : (
@@ -843,8 +786,57 @@ export function DiaryView({
                     </motion.div>
 
                     {/* Decorative Corner */}
-                    <div className="absolute bottom-6 right-6 w-20 h-20 border-r-[3px] border-b-[3px] border-vintage-burgundy/20 rounded-br-2xl pointer-events-none" />
-                    <div className="absolute top-6 right-6 w-20 h-20 border-r-[3px] border-t-[3px] border-vintage-burgundy/20 rounded-tr-2xl pointer-events-none" />
+                    <div className="absolute bottom-6 left-6 w-20 h-20 border-l-[3px] border-b-[3px] border-vintage-burgundy/20 rounded-bl-2xl pointer-events-none" />
+                    <div className="absolute top-6 left-6 w-20 h-20 border-l-[3px] border-t-[3px] border-vintage-burgundy/20 rounded-tl-2xl pointer-events-none" />
+                  </div>
+
+                  {/* Center fold shadow */}
+                  <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-16 -translate-x-1/2 bg-gradient-to-r from-black/10 via-black/40 to-black/10 z-20 pointer-events-none shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]" />
+                  {/* Stitching binding in the middle */}
+                  <div className="hidden md:flex absolute left-1/2 top-10 bottom-10 -translate-x-1/2 w-2 flex-col justify-between py-8 z-30 pointer-events-none opacity-60">
+                    {[...Array(6)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-full h-1 bg-parchment-white shadow-sm rotate-[-10deg]"
+                      />
+                    ))}
+                  </div>
+
+                  {/* Right Page (Content) */}
+                  <div className="flex-1 bg-parchment relative rounded-r-md overflow-hidden shadow-[inset_15px_0_30px_rgba(0,0,0,0.15)] group/right flex flex-col">
+                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-l from-black/5 via-transparent to-black/10 z-0" />
+
+                    <div className="flex-1 overflow-y-auto magic-scrollbar p-8 md:p-14 ml-4 flex flex-col relative z-10">
+                      <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.6 }}
+                        className="flex-1 flex flex-col">
+                        {isEditing ? (
+                          <textarea
+                            ref={contentTextareaRef}
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onPaste={(e) =>
+                              handleImagePasteHelper(e, images, setImages, 6)
+                            }
+                            placeholder="Let your magic flow through the quill..."
+                            className="w-full flex-1 min-h-[400px] font-['Caveat'] text-2xl leading-[1.8] text-[#2c2420] whitespace-pre-wrap tracking-wide bg-transparent outline-none resize-none placeholder-[#2c2420]/30"
+                            autoFocus={isNewEntry}
+                          />
+                        ) : (
+                          <p className="font-['Caveat'] flex-1 text-2xl leading-[1.8] text-[#2c2420] whitespace-pre-wrap tracking-wide pb-12">
+                            {isNewEntry
+                              ? "Click the edit button below to write your first entry in this magical diary..."
+                              : entry?.content}
+                          </p>
+                        )}
+                      </motion.div>
+                    </div>
+
+                    {/* Decorative Corner */}
+                    <div className="absolute bottom-6 right-6 w-20 h-20 border-r-[3px] border-b-[3px] border-vintage-burgundy/20 rounded-br-2xl pointer-events-none z-20" />
+                    <div className="absolute top-6 right-6 w-20 h-20 border-r-[3px] border-t-[3px] border-vintage-burgundy/20 rounded-tr-2xl pointer-events-none z-20" />
                   </div>
 
                   {/* Close Button overlay */}
@@ -888,7 +880,7 @@ export function DiaryView({
         </main>
 
         {/* Bottom Actions */}
-        <footer className="p-6 bg-gradient-to-t from-[#1a1412] via-[#1a1412]/80 to-transparent z-20 sticky bottom-0 ">
+        <footer className="pt-2 pb-4 bg-gradient-to-t from-[#1a1412] via-[#1a1412]/80 to-transparent z-20 sticky bottom-0 ">
           <div className="flex items-center justify-center gap-2 mt-2">
             {/* 隐藏式删除单条日记：最左侧，低透明度，hover 时显现 */}
             {isOpen && !isNewEntry && entry && (
@@ -979,48 +971,63 @@ export function DiaryView({
               </button>
             )}
           </div>
-          <div className="flex items-center justify-center gap-2 pt-5 pb-3">
-            {isSearchOpen && (
-              <div className="flex-1 min-w-[200px] max-w-[320px] flex items-center gap-2 mb-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (searchKeyword.trim()) {
-                      handleSearchEnter();
-                    }
-                  }}
-                  className="p-1.5 text-faded-gold/70 hover:text-faded-gold transition-colors"
-                  aria-label="Execute search">
-                  <Search className="w-5 h-5 flex-shrink-0" />
-                </button>
-                <input
-                  type="text"
-                  placeholder="Search in this book..."
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setDebouncedSearchKeyword(searchKeyword);
-                    }
-                  }}
-                  className="flex-1 bg-white/10 border border-faded-gold/40 rounded-full py-2 pl-4 pr-4 outline-none focus:ring-2 focus:ring-faded-gold/50 text-faded-gold placeholder:text-faded-gold/40 font-['Cinzel'] text-sm"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchKeyword("");
-                    setIsSearchOpen(false);
-                  }}
-                  className="p-1.5 text-faded-gold/70 hover:text-faded-gold transition-colors"
-                  aria-label="Close search">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
         </footer>
+
+        {/* Search Modal Overlay */}
+        <AnimatePresence>
+          {isSearchOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchKeyword("");
+              }}>
+              <motion.div
+                initial={{ scale: 0.95, y: -20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: -20 }}
+                className="w-full max-w-lg bg-[#2c2420] border-2 border-faded-gold/40 rounded-xl shadow-2xl p-6"
+                onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-3">
+                  {isSearching ? (
+                    <Loader2 className="w-6 h-6 text-faded-gold/70 animate-spin" />
+                  ) : (
+                    <Search className="w-6 h-6 text-faded-gold/70" />
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Search in this book..."
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !isSearching) {
+                        e.preventDefault();
+                        setDebouncedSearchKeyword(searchKeyword);
+                      }
+                    }}
+                    disabled={isSearching}
+                    className="flex-1 bg-transparent border-none outline-none text-faded-gold placeholder:text-faded-gold/40 font-['Cinzel'] text-xl disabled:opacity-50"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchKeyword("");
+                      setIsSearchOpen(false);
+                    }}
+                    disabled={isSearching}
+                    className="p-2 text-faded-gold/70 hover:text-faded-gold transition-colors rounded-full hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Close search">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Search Result Modal - 多条匹配时展示列表供选择 */}
         <SearchResultModal

@@ -18,9 +18,9 @@ datasource db {
 /// 存储用户账户信息，包括认证凭据和个人偏好设置
 model User {
   id           String      @id @default(cuid())
-  username     String      @unique
+  accountId    String      @unique
   passwordHash String
-  name         String?
+  nickname     String?
   coreMemory   Json?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime   @updatedAt

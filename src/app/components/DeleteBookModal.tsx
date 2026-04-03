@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Flame, Loader2, Wand2 } from "lucide-react";
+import { useEffect } from "react";
 
 interface DeleteBookModalProps {
   isOpen: boolean;
@@ -14,6 +15,16 @@ export function DeleteBookModal({
   onConfirm,
   isDeleting,
 }: DeleteBookModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (

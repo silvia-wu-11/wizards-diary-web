@@ -47,4 +47,5 @@ alwaysApply: true
   - 在动手写/改实现前，先读相关 `openspec/specs/` 与本次 `openspec/changes/<id>/` 中的文档，以 spec 和 design 为「要实现的真相」。
   - **先写测再实现**：开发新功能时，先根据 spec/design 写出或更新测试用例（红），再写实现代码直到测试通过（绿），必要时再重构；小修小补（如文案、样式）可灵活处理。
   - 若实现过程中发现需求或设计需要调整，优先更新对应的 spec/design，再改测试与代码，保持文档与代码一致。
+  - **归档清理**：当 change 开发和验证全部完成，执行归档操作时，必须同步更新 `openspec/README.md`，将新完成的能力补充到「当前能力规格 (Specs)」列表中，并从「进行中的变更 (Changes)」中移除该变更。
   - 本仓库的 Cursor rules：project-context 管目标、技术栈与协作流程；fullstack-conventions 管写代码时的具体约定（风格、目录、测试写法等）。OpenSpec 管「做什么、怎么设计」。

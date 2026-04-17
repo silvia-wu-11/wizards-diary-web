@@ -16,7 +16,8 @@
 - [x] 3.2 修改 `src/app/pages/DiaryView.tsx`：将 `handleSearchEnter` 重构为 `async` 异步函数，在搜索时显示加载指示器，并调用新创建的 `searchBookEntries` Server Action，取代原有的本地过滤逻辑。
 - [x] 3.3 修改 `src/app/pages/DiaryView.tsx`：将结构化的搜索结果 `{ exactMatches, semanticMatches }` 传递给更新后的 `SearchResultModal`。
 
-## 阶段 4：测试与打磨
-- [ ] 4.1 编写/更新 Vitest API 测试，覆盖 `getEntriesPaginated` 接口，验证新增的 `semanticEntries` payload 是否符合预期。
-- [ ] 4.2 编写/更新 Vitest API 测试，覆盖新增的 `searchBookEntries` 接口。
-- [ ] 4.3 手动验证 UI 布局、分割线的样式，并确保精确匹配列表和语义匹配列表之间没有出现重复的日记条目。
+## 阶段 4：测试与验证
+
+- [x] **4.1** 编写/更新 Vitest API 测试，覆盖 `getEntriesPaginated` 接口，验证新增的 `semanticEntries` payload 是否符合预期。
+- [x] **4.2** 编写/更新 Vitest API 测试，覆盖新增的 `searchBookEntries` 接口。
+- [x] **4.3** 手动验证 UI 布局、分割线的样式，并确保精确匹配列表和语义匹配列表之间没有出现重复的日记条目。

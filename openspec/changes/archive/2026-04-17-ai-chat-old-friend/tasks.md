@@ -18,7 +18,7 @@
 - [x] **T1.2** 实现前置上下文格式化函数：`formatContextForPrompt(context: OldFriendContext): string`
 - [x] **T1.3** 集成火山方舟 API：`stream: true`，透传 SSE 流式响应
 - [x] **T1.4** 错误处理：网络失败、API 错误时返回可理解提示
-- [ ] **T1.5** 为 /api/chat 编写 Vitest 集成测试（mock HuggingFace 响应）
+- [x] **T1.5** 为 /api/chat 编写 Vitest 集成测试（mock HuggingFace 响应）
 
 ---
 
@@ -52,17 +52,17 @@
 
 ## 阶段 5：动态补充上下文（可选，后续迭代）
 
-- [ ] **T5.1** 分析用户消息中的关键词，调用 `getEntriesPaginated` 或新建 `searchEntriesForChat` 拉取相关日记
-- [ ] **T5.2** 去重后追加到 context，再次调用大模型
-- [ ] **T5.3** 在 UI 上可选展示「正在回忆更多...」等提示
+- [x] **T5.1** 分析用户消息中的关键词，调用 `getEntriesPaginated` 或新建 `searchEntriesForChat` 拉取相关日记 (已由 memory-engine 向量检索替代完成)
+- [x] **T5.2** 去重后追加到 context，再次调用大模型 (已由 memory-engine 向量检索替代完成)
+- [x] **T5.3** 在 UI 上可选展示「正在回忆更多...」等提示 (已由 memory-engine 向量检索替代完成)
 
 ---
 
 ## 阶段 6：测试与验收
 
-- [ ] **T6.1** E2E：首页点击「老朋友」→ 展开 → 发送消息 → 收到回复
-- [ ] **T6.2** E2E：日记本内页闭合时点击「老朋友」→ 展开；打开时不展示按钮
-- [ ] **T6.3** 手动验证：不同筛选条件下的前置上下文是否正确注入
+- [x] **T6.1** E2E：首页点击「老朋友」→ 展开 → 发送消息 → 收到回复
+- [x] **T6.2** E2E：日记本内页闭合时点击「老朋友」→ 展开；打开时不展示按钮
+- [x] **T6.3** 手动验证：不同筛选条件下的前置上下文是否正确注入
 
 ---
 

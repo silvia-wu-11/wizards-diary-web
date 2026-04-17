@@ -189,16 +189,8 @@ describe('diary Server Actions', () => {
       ).rejects.toThrow('请先创建日记本');
     });
 
-    it('创建成功并返回新日记', async () => {
-      vi.mocked(prisma.diaryBook.findFirst).mockResolvedValue({
-        id: mockBookId,
-        userId: mockUserId,
-        name: 'Book',
-        color: null,
-        type: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as never);
+    it('创建成功并返回新日记，同时触发异步向量化和核心记忆更新任务', async () => {
+      vi.mocked(prisma.diaryBook.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.diaryBook.findFirst).mockResolvedValueOnce({
         id: mockBookId,
         userId: mockUserId,
@@ -221,10 +213,17 @@ describe('diary Server Actions', () => {
       };
       vi.mocked(prisma.diaryEntry.create).mockResolvedValue(created as never);
 
+      const { vectorizeDiaryEntry } = await import('@/lib/embedding/create');
+      const { updateCoreMemoryFromDiary } = await import('@/lib/memory/update');
+
       const result = await createEntry({ content: 'Hello' });
       expect(result.content).toBe('Hello');
       expect(result.id).toBe(mockEntryId);
       expect(prisma.diaryEntry.create).toHaveBeenCalled();
+
+      // after 函数由于是 mock 的，直接执行了传入的 cb，因此这里能够立即校验到后续异步调用
+      expect(vectorizeDiaryEntry).toHaveBeenCalledWith(mockEntryId, 'Hello');
+      expect(updateCoreMemoryFromDiary).toHaveBeenCalledWith(mockUserId, 'Hello');
     });
   });
 

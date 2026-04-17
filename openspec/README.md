@@ -10,6 +10,7 @@
 | diary-entry | [specs/diary-entry/spec.md](specs/diary-entry/spec.md) | 日记创建、更新、删除、后端持久化 |
 | diary-book | [specs/diary-book/spec.md](specs/diary-book/spec.md) | 日记本创建、删除、后端持久化 |
 | diary-list | [specs/diary-list/spec.md](specs/diary-list/spec.md) | 日记列表分页、日期范围筛选、组合筛选、关键词搜索 |
+| hybrid-search | [specs/hybrid-search/spec.md](specs/hybrid-search/spec.md) | 混合搜索：结合精确匹配与向量语义检索 |
 | ai-chat | [specs/ai-chat/spec.md](specs/ai-chat/spec.md) | 基于日记数据的 AI 对话（老朋友） |
 | memory-engine | [specs/memory-engine/spec.md](specs/memory-engine/spec.md) | 个人记忆引擎：Core Memory + 向量化 + RAG 对话 |
 | onboarding | [specs/onboarding/spec.md](specs/onboarding/spec.md) | 新用户引导（注册/登录 → 创建日记本 → 创建第一篇日记） |
@@ -21,8 +22,6 @@
 | **auth-implementation** | [proposal](changes/auth-implementation/proposal.md) | [design](changes/auth-implementation/design.md) | [tasks](changes/auth-implementation/tasks.md) |
 | **diary-backend-persistence** | [proposal](changes/diary-backend-persistence/proposal.md) | [design](changes/diary-backend-persistence/design.md) | [tasks](changes/diary-backend-persistence/tasks.md) |
 | **diary-list-pagination-search** | [proposal](changes/diary-list-pagination-search/proposal.md) | [design](changes/diary-list-pagination-search/design.md) | [tasks](changes/diary-list-pagination-search/tasks.md) |
-| **memory-engine** | [proposal](changes/memory-engine/proposal.md) | [design](changes/memory-engine/design.md) | [tasks](changes/memory-engine/tasks.md) |
-| **ai-chat-old-friend** | [proposal](changes/ai-chat-old-friend/proposal.md) | [design](changes/ai-chat-old-friend/design.md) | [tasks](changes/ai-chat-old-friend/tasks.md) |
 | **onboarding-new-user-guide** | [proposal](changes/onboarding-new-user-guide/proposal.md) | [design](changes/onboarding-new-user-guide/design.md) | [tasks](changes/onboarding-new-user-guide/tasks.md) |
 
 **开发 auth 时**：先读 `specs/auth/spec.md` 与 `changes/auth-implementation/design.md`，按 `tasks.md` 顺序执行，遵循 TDD（先写测再实现）。
@@ -30,10 +29,6 @@
 **开发日记后端持久化时**：先读 `specs/diary-entry/spec.md`、`specs/diary-book/spec.md` 与 `changes/diary-backend-persistence/design.md`，按 `tasks.md` 顺序执行，遵循 TDD。
 
 **开发日记列表分页与搜索时**：先读 `specs/diary-list/spec.md` 与 `changes/diary-list-pagination-search/design.md`，按 `tasks.md` 顺序执行，遵循 TDD。
-
-**开发 AI 对话（老朋友）时**：先读 `specs/ai-chat/spec.md` 与 `changes/ai-chat-old-friend/design.md`，按 `tasks.md` 顺序执行，遵循 TDD。
-
-**开发个人记忆引擎时**：先读 `specs/memory-engine/spec.md` 与 `changes/memory-engine/design.md`，按 `tasks.md` 顺序执行，遵循 TDD。
 
 **开发新用户引导时**：先读 `specs/onboarding/spec.md` 与 `changes/onboarding-new-user-guide/design.md`，按 `tasks.md` 顺序执行，遵循 TDD。
 

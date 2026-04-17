@@ -21,7 +21,55 @@ vi.mock('@/lib/embedding/create', () => ({
   createEmbedding: mocks.mockCreateEmbedding,
 }));
 
-import { searchRelatedDiaries } from '@/lib/embedding/search';
+import { searchRelatedDiaries, searchRelatedChunks } from '@/lib/embedding/search';
+
+describe('searchRelatedChunks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.mockCreateEmbedding.mockResolvedValue({
+      embedding: new Array(1024).fill(0.1),
+      tokenUsage: 10,
+    });
+    mocks.mockQueryRaw.mockResolvedValue([]);
+    mocks.mockFindMany.mockResolvedValue([]);
+  });
+
+  it('SQL 查询包含用户隔离条件（JOIN DiaryBook + userId 过滤）', async () => {
+    await searchRelatedChunks('user-abc', '测试消息', 5);
+    expect(mocks.mockQueryRaw).toHaveBeenCalled();
+    const [taggedArgs] = mocks.mockQueryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
+    const fullSql = taggedArgs.join('???');
+    expect(fullSql).toContain('DiaryChunk');
+    expect(fullSql).toContain('DiaryEntry');
+    expect(fullSql).toContain('DiaryBook');
+    expect(fullSql).toContain('userId');
+  });
+
+  it('SQL 包含余弦相似度操作符 <=> 和时间衰减因子', async () => {
+    await searchRelatedChunks('user-123', '测试', 5);
+    const tpl = (mocks.mockQueryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]])[0];
+    const fullSql = tpl.join('???');
+    expect(fullSql).toContain('<=>');
+    expect(fullSql).toContain('EXTRACT(EPOCH FROM');
+  });
+
+  it('成功时返回包含 entryId/chunkIndex/content 的切块列表', async () => {
+    const mockRows = [
+      {
+        entryId: 'entry-1',
+        chunkIndex: 0,
+        content: '今天去了巴黎的第一段',
+        date: new Date('2026-01-01'),
+        title: '旅行日记',
+      },
+    ];
+    mocks.mockQueryRaw.mockResolvedValue(mockRows);
+    const result = await searchRelatedChunks('user-123', '旅行', 5);
+    expect(result).toHaveLength(1);
+    expect(result[0].entryId).toBe('entry-1');
+    expect(result[0].chunkIndex).toBe(0);
+  });
+});
 
 describe('searchRelatedDiaries', () => {
   beforeEach(() => {

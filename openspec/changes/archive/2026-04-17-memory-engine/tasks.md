@@ -9,7 +9,7 @@
 ### 1.1 数据库 Migration
 
 - [x] **1.1.1** 启用 pgvector 扩展：在 Supabase SQL Editor 执行 `CREATE EXTENSION IF NOT EXISTS vector;`（若尚未执行）✅
-- [ ] **1.1.2** 修改 `prisma/schema.prisma`：新增 `DiaryChunk` 模型以存储切块及其向量（`Unsupported("vector(1024)")`），并移除 `DiaryEntry.embedding` 字段，同时新增 `vectorized` 标记字段 
+- [x] **1.1.2** 修改 `prisma/schema.prisma`：新增 `DiaryChunk` 模型以存储切块及其向量（`Unsupported("vector(1024)")`），并移除 `DiaryEntry.embedding` 字段，同时新增 `vectorized` 标记字段 
 - [x] **1.1.3** 执行 `pnpm prisma db push` 同步 Schema 到 Supabase ✅
 - [x] **1.1.4** 执行 `pnpm prisma generate` 更新 Prisma Client ✅
 
@@ -45,11 +45,11 @@
 
 ### 2.4 向量检索
 
-- [ ] **2.4.1** 更新 `src/lib/embedding/search.ts`：实现 `searchRelatedChunks(userId, query, limit=5)` 用于 Chum 对话上下文注入
-- [ ] **2.4.2** 更新 `src/lib/embedding/search.ts`：修改 `searchRelatedDiaries(userId, query, limit=5)` 返回完整的日记（包含去重逻辑）
+- [x] **2.4.1** 更新 `src/lib/embedding/search.ts`：实现 `searchRelatedChunks(userId, query, limit=5)` 用于 Chum 对话上下文注入
+- [x] **2.4.2** 更新 `src/lib/embedding/search.ts`：修改 `searchRelatedDiaries(userId, query, limit=5)` 返回完整的日记（包含去重逻辑）
 - [x] **2.4.3** 搜索范围严格限定为当前用户（`WHERE db."userId" = $userId`）✅
 - [x] **2.4.4** 实现降级逻辑：向量检索失败时降级为 `ILIKE` 全文搜索，按 `updatedAt` 倒序 ✅
-- [ ] **2.4.5** 编写单元测试：更新检索逻辑的 mock 测试
+- [x] **2.4.5** 编写单元测试：更新检索逻辑的 mock 测试
 
 ---
 
@@ -96,8 +96,8 @@
 - [x] **4.1.2** 日记保存成功后，从 `bookId` 关联查询 `userId` ✅
 - [x] **4.1.3** 使用 `after()` 触发异步任务：`vectorizeDiaryEntry` + `updateCoreMemoryFromDiary` ✅
 - [x] **4.1.4** 修改 `updateEntry` 函数，当修改了正文内容时重置 `vectorized` 并重新触发异步任务 ✅
-- [ ] **4.1.5** 备选方案：若 `after()` 不可用，实现 `sendBeacon` / API route 方案作为 fallback
-- [ ] **4.1.6** 编写集成测试：mock `after`，验证异步任务在 diary 保存成功后被触发
+- [x] **4.1.5** 备选方案：若 `after()` 不可用，实现 `sendBeacon` / API route 方案作为 fallback (已确认 Next.js 15.3 `after` 可用，跳过 fallback)
+- [x] **4.1.6** 编写集成测试：mock `after`，验证异步任务在 diary 保存成功后被触发
 
 ---
 
@@ -116,16 +116,16 @@
 - [x] **5.2.1** 在 `POST /api/chat` 用户消息处理逻辑中，在调用火山方舟 API **之前**：调用 `searchRelatedDiaries(userId, input, 5)` 获取 5 篇相关日记 ✅
 - [x] **5.2.2** 实现 `formatDiaryContextForPrompt` 工具函数（将日记格式化为 `【日期】标题：内容摘要` 片段）✅
 - [x] **5.2.3** **每轮用户消息都执行向量检索**（首次请求注入 Core Memory 一次，后续请求不重复注入，仅注入向量检索结果）✅
-- [ ] **5.2.4** 编写集成测试：mock `searchRelatedDiaries`，mock 火山方舟 API，验证检索到的日记被正确注入到每次请求中
+- [x] **5.2.4** 编写集成测试：mock `searchRelatedDiaries`，mock 火山方舟 API，验证检索到的日记被正确注入到每次请求中
 
 ---
 
 ## 阶段六：端到端验收（E2E Verification）
 
-- [ ] **6.1** 使用 Playwright 编写 E2E 测试：
+- [x] **6.1** 使用 Playwright 编写 E2E 测试：
   - 保存新日记 → 验证日记列表出现 → 验证后台无报错
   - 打开「老朋友 Chum」对话框 → 发送涉及日记内容的问题 → 验证 AI 回复中体现了相关日记上下文
-- [ ] **6.2** 手动验证场景：
+- [x] **6.2** 手动验证场景：
   - 日记超过 1000 字符 → 验证向量分块存储
   - 无 Core Memory 用户首次保存日记 → 验证 Core Memory 自动初始化
   - 向量检索失败 → 验证降级为全文搜索

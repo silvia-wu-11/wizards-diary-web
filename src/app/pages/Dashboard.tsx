@@ -296,6 +296,9 @@ export function Dashboard() {
         setListEntries((prev) =>
           prev.filter((entry) => !selectedForDeletion.has(entry.id)),
         );
+        setSemanticEntries((prev) =>
+          prev.filter((entry) => !selectedForDeletion.has(entry.id)),
+        );
         setSelectedForDeletion(new Set());
         setIsDeleteMode(false);
       }
@@ -937,13 +940,15 @@ export function Dashboard() {
                 tag: selectedTag ?? undefined,
                 keyword: debouncedSearchQuery.trim() || undefined,
               },
-              entries: listEntries.slice(0, 30).map((e) => ({
-                id: e.id,
-                title: e.title,
-                content: e.content,
-                date: e.date,
-                tags: e.tags,
-              })),
+              entries: [...listEntries, ...semanticEntries]
+                .slice(0, 30)
+                .map((e) => ({
+                  id: e.id,
+                  title: e.title,
+                  content: e.content,
+                  date: e.date,
+                  tags: e.tags,
+                })),
               source: "dashboard",
             } satisfies OldFriendContext
           }
@@ -1139,7 +1144,7 @@ export function Dashboard() {
       <ViewEntryModal
         entryId={viewingEntryId}
         onClose={() => setViewingEntryId(null)}
-        entries={listEntries}
+        entries={[...listEntries, ...semanticEntries]}
         books={books}
         viewingPreviewIndex={viewingPreviewIndex}
         setViewingPreviewIndex={setViewingPreviewIndex}

@@ -8,5 +8,18 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['**/*.{test,spec}.{ts,tsx}'],
     exclude: ['**/node_modules/**', '**/e2e/**', '**/.next/**'],
+    coverage: {
+      provider: 'v8',
+      reportsDirectory: 'coverage',
+      reporter: ['text', 'html', 'json-summary'],
+      exclude: [
+        '**/node_modules/**',
+        '**/e2e/**',
+        '**/.next/**',
+        '**/coverage/**',
+        '**/prisma/**',
+        '**/scripts/**',
+      ],
+    },
   },
 });

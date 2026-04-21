@@ -36,7 +36,7 @@ pnpm i
 ### 2. 配置环境变量
 
 ```bash
-cp .env.example .env.local
+cp .env.local.example .env.local
 ```
 
 
@@ -53,9 +53,11 @@ cp .env.example .env.local
 
 ### 3. 初始化数据库
 
-在 [Supabase Dashboard](https://supabase.com/dashboard) 创建项目后，将连接串写入 `.env.local`，然后：
+推荐使用 Supabase CLI 在本地启动一套可隔离的开发数据库（避免本地开发误改远程库）：
 
 ```bash
+pnpm db:local:start
+pnpm db:local:status
 pnpm db:migrate
 ```
 
@@ -64,6 +66,19 @@ pnpm db:migrate
 ```bash
 pnpm dev
 ```
+
+## 本地数据库（Supabase CLI）
+
+本项目支持使用 Supabase CLI 在本地启动 Postgres/Auth/Storage 等服务，默认端口：
+
+- DB: `127.0.0.1:54322`
+- API: `127.0.0.1:54321`
+- Studio: `http://127.0.0.1:54323`
+
+建议做法：
+
+1. 使用 `.env.local` 指向本地库（参考 `.env.local.example`）。
+2. 将 `.env` 仅用于远程库（例如 Supabase 线上项目），并且只通过显式脚本发布迁移。
 
 ## 常用脚本
 
@@ -75,8 +90,11 @@ pnpm dev
 | `pnpm start`      | 启动生产服务器              |
 | `pnpm test`       | 运行 Vitest 单测         |
 | `pnpm test:e2e`   | 运行 Playwright E2E 测试 |
-| `pnpm db:migrate` | 执行 Prisma 迁移         |
-| `pnpm db:push`    | 将 schema 推送到数据库（开发用） |
+| `pnpm db:local:start` | 启动本地 Supabase（Docker） |
+| `pnpm db:local:stop`  | 停止本地 Supabase |
+| `pnpm db:migrate`     | 对本地数据库执行 Prisma 迁移（使用 `.env.local`） |
+| `pnpm db:push`        | 将 schema 推送到本地数据库（开发用，使用 `.env.local`） |
+| `pnpm db:deploy:remote` | 发布迁移到远程数据库（使用 `.env`，安全、不丢数据） |
 
 
 ## 项目结构
@@ -103,4 +121,3 @@ openspec/
 
 - [shadcn/ui](https://ui.shadcn.com/)（MIT）
 - [Unsplash](https://unsplash.com) 图片素材
-

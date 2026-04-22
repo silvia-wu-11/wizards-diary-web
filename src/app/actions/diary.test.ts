@@ -190,8 +190,7 @@ describe('diary Server Actions', () => {
     });
 
     it('创建成功并返回新日记，同时触发异步向量化和核心记忆更新任务', async () => {
-      vi.mocked(prisma.diaryBook.findFirst).mockResolvedValue(null);
-      vi.mocked(prisma.diaryBook.findFirst).mockResolvedValueOnce({
+      vi.mocked(prisma.diaryBook.findFirst).mockResolvedValue({
         id: mockBookId,
         userId: mockUserId,
         name: 'Book',
@@ -224,6 +223,53 @@ describe('diary Server Actions', () => {
       // after 函数由于是 mock 的，直接执行了传入的 cb，因此这里能够立即校验到后续异步调用
       expect(vectorizeDiaryEntry).toHaveBeenCalledWith(mockEntryId, 'Hello');
       expect(updateCoreMemoryFromDiary).toHaveBeenCalledWith(mockUserId, 'Hello');
+    });
+
+    it('创建时透传录音元数据', async () => {
+      vi.mocked(prisma.diaryBook.findFirst).mockResolvedValue({
+        id: mockBookId,
+        userId: mockUserId,
+        name: 'Book',
+        color: null,
+        type: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as never);
+      vi.mocked(prisma.diaryEntry.create).mockResolvedValue({
+        id: mockEntryId,
+        bookId: mockBookId,
+        title: null,
+        content: 'Hello audio',
+        date: new Date(),
+        tags: [],
+        imageUrls: [],
+        audioUrl: 'https://example.com/audio.webm',
+        audioName: '夜色',
+        audioDurationSec: 12,
+        audioMimeType: 'audio/webm',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as never);
+
+      const result = await createEntry({
+        content: 'Hello audio',
+        audioUrl: 'https://example.com/audio.webm',
+        audioName: '夜色',
+        audioDurationSec: 12,
+        audioMimeType: 'audio/webm',
+      });
+
+      expect(prisma.diaryEntry.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            audioUrl: 'https://example.com/audio.webm',
+            audioName: '夜色',
+            audioDurationSec: 12,
+            audioMimeType: 'audio/webm',
+          }),
+        })
+      );
+      expect(result.audioName).toBe('夜色');
     });
   });
 
@@ -356,6 +402,56 @@ describe('diary Server Actions', () => {
       );
 
       expect(vectorizeDiaryEntry).not.toHaveBeenCalled();
+    });
+
+    it('支持清空录音字段', async () => {
+      vi.mocked(prisma.diaryEntry.findFirst).mockResolvedValue({
+        id: mockEntryId,
+        bookId: mockBookId,
+        title: 'Old Title',
+        content: 'Same Content',
+        date: new Date(),
+        tags: [],
+        imageUrls: [],
+        audioUrl: 'https://example.com/audio.webm',
+        audioName: '旧录音',
+        audioDurationSec: 10,
+        audioMimeType: 'audio/webm',
+        vectorized: true,
+      } as never);
+      vi.mocked(prisma.diaryEntry.update).mockResolvedValue({
+        id: mockEntryId,
+        bookId: mockBookId,
+        title: 'Old Title',
+        content: 'Same Content',
+        date: new Date(),
+        tags: [],
+        imageUrls: [],
+        audioUrl: null,
+        audioName: null,
+        audioDurationSec: null,
+        audioMimeType: null,
+        vectorized: true,
+      } as never);
+
+      const result = await updateEntry(mockEntryId, {
+        audioUrl: null,
+        audioName: null,
+        audioDurationSec: null,
+        audioMimeType: null,
+      });
+
+      expect(prisma.diaryEntry.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            audioUrl: null,
+            audioName: null,
+            audioDurationSec: null,
+            audioMimeType: null,
+          }),
+        })
+      );
+      expect(result.audioUrl).toBeNull();
     });
   });
 

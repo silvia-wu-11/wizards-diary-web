@@ -11,7 +11,9 @@ import {
   Image as ImageIcon,
   Loader2,
   LogIn,
+  Mic,
   Search,
+  Square,
   Star,
   Trash2,
   Wand2,
@@ -24,6 +26,10 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { deleteEntries, getEntriesPaginated, getTags } from "../actions/diary";
 import { CreateBookModal, type BookData } from "../components/CreateBookModal";
+import {
+  AudioRecorderField,
+  type AudioRecorderFieldHandle,
+} from "../components/AudioRecorderField";
 import {
   DiaryImage,
   ImagePreviewGallery,
@@ -39,6 +45,11 @@ import { AuthModal } from "../components/auth/AuthModal";
 import { useOnboardingContext } from "../components/onboarding/OnboardingContext";
 import { useDiaryStore } from "../store";
 import type { OldFriendContext } from "../types/ai-chat";
+import {
+  createEmptyDiaryAudioDraft,
+  uploadDiaryAudio,
+  type DiaryAudioDraft,
+} from "../../lib/audio";
 
 import {
   handleImagePasteHelper,
@@ -62,6 +73,8 @@ export function Dashboard() {
   const [selectedBook, setSelectedBook] = useState(books[0]?.id ?? "");
   const [searchQuery, setSearchQuery] = useState("");
   const [images, setImages] = useState<DiaryImage[]>([]);
+  const [audio, setAudio] = useState<DiaryAudioDraft>(createEmptyDiaryAudioDraft);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [viewingPreviewIndex, setViewingPreviewIndex] = useState<number | null>(
     null,
@@ -101,6 +114,7 @@ export function Dashboard() {
   const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
   const tagInputContainerRef = useRef<HTMLDivElement>(null);
   const authSuccessRef = useRef(false);
+  const audioRecorderRef = useRef<AudioRecorderFieldHandle>(null);
 
   // 注册新手引导 actions
   useEffect(() => {
@@ -292,7 +306,7 @@ export function Dashboard() {
       const ids = Array.from(selectedForDeletion);
       const res = await deleteEntries(ids);
       if (res.count > 0) {
-        toast.success(`成功遗忘 ${res.count} 篇记忆`);
+        toast.success(`Oblivion claimed ${res.count} memories.`);
         setListEntries((prev) =>
           prev.filter((entry) => !selectedForDeletion.has(entry.id)),
         );
@@ -303,9 +317,26 @@ export function Dashboard() {
         setIsDeleteMode(false);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "删除失败");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "The forgetting spell failed.",
+      );
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleToggleAudioRecording = async () => {
+    try {
+      if (isRecordingAudio) {
+        audioRecorderRef.current?.stopRecording();
+        return;
+      }
+      await audioRecorderRef.current?.startRecording();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      toast.error(`[Dashboard.handleToggleAudioRecording] ${detail}`);
     }
   };
 
@@ -313,14 +344,18 @@ export function Dashboard() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
+    if (isRecordingAudio) {
+      toast.error("Stop recording before sealing the page.");
+      return;
+    }
     if (images.some((img) => img.loading)) {
-      toast.error("请等待图片加载完成");
+      toast.error("Wait for the images to settle before sealing the page.");
       return;
     }
 
     // 检查登录状态
     if (!session?.user) {
-      toast.error("请先登录账号");
+      toast.error("Sign in before continuing.");
       setAuthModalInitialMode("login");
       setIsAuthModalOpen(true);
       return;
@@ -328,6 +363,13 @@ export function Dashboard() {
 
     setIsSaving(true);
     try {
+      let uploadedAudio = null as null | {
+        url: string;
+        mimeType: string;
+      };
+      if (audio.file) {
+        uploadedAudio = await uploadDiaryAudio(audio.file);
+      }
       const created = await saveEntry({
         title: title.trim() || null,
         content,
@@ -343,6 +385,10 @@ export function Dashboard() {
                 .filter((img) => !img.loading && img.url)
                 .map((img) => img.url)
             : undefined,
+        audioUrl: uploadedAudio?.url ?? audio.audioUrl,
+        audioName: audio.name.trim() || null,
+        audioDurationSec: audio.durationSec,
+        audioMimeType: uploadedAudio?.mimeType ?? audio.mimeType,
       });
       const keyword = debouncedSearchQuery.trim().toLowerCase();
       const createdDate = new Date(created.date).getTime();
@@ -390,13 +436,16 @@ export function Dashboard() {
           return newTags.length > 0 ? [...prev, ...newTags] : prev;
         });
       }
-      toast.success("日记已保存");
+      toast.success("Sealed in starlight.");
       setTitle("");
       setContent("");
       setTagsStr("");
       setImages([]);
+      setAudio(createEmptyDiaryAudioDraft());
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "保存失败");
+      toast.error(
+        err instanceof Error ? err.message : "The page could not be sealed.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -416,13 +465,14 @@ export function Dashboard() {
     setIsCreatingBook(true);
     try {
       const created = await addBook(data);
-      toast.success("日记本已创建");
+      toast.success("A new grimoire has been bound.");
       setSelectedBook(created.id);
       onboardingCtx?.emitBookCreated();
       setIsNewBookModalOpen(false);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "创建失败";
-      if (msg === "Unauthorized" || msg.includes("未登录")) {
+      const msg =
+        err instanceof Error ? err.message : "The grimoire could not be bound.";
+      if (msg === "Unauthorized" || /未登录|sign in|not signed in/i.test(msg)) {
         setPendingBookData(data);
         setAuthModalInitialMode("register");
         setIsAuthModalOpen(true);
@@ -450,12 +500,15 @@ export function Dashboard() {
             setIsCreatingBook(true);
             try {
               const created = await addBook(pendingBookData);
-              toast.success("日记本已创建");
+              toast.success("A new grimoire has been bound.");
               setSelectedBook(created.id);
               onboardingCtx?.emitBookCreated();
               setIsNewBookModalOpen(false);
             } catch (err) {
-              const msg = err instanceof Error ? err.message : "创建失败";
+              const msg =
+                err instanceof Error
+                  ? err.message
+                  : "The grimoire could not be bound.";
               toast.error(msg);
             } finally {
               setIsCreatingBook(false);
@@ -495,9 +548,9 @@ export function Dashboard() {
             onClick={() => setIsAuthModalOpen(true)}
             data-onboarding-target="step1-login"
             className="absolute top-0 right-0 flex items-center gap-2 rounded-lg bg-rusty-copper/80 px-4 py-2 text-faded-gold hover:bg-rusty-copper transition-colors"
-            aria-label={session ? "账户" : "登录或创建账号"}>
+            aria-label={session ? "Account" : "Sign In Or Create Account"}>
             <LogIn className="size-4" />
-            {session ? session?.user?.name : "login"}
+            {session ? session?.user?.name : "Sign In"}
           </button>
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -578,6 +631,16 @@ export function Dashboard() {
                     previewIndex={previewIndex}
                     setPreviewIndex={setPreviewIndex}
                     layoutStyle="flex"
+                  />
+                  <AudioRecorderField
+                    ref={audioRecorderRef}
+                    value={audio}
+                    onChange={setAudio}
+                    onRecordingChange={setIsRecordingAudio}
+                    showInlineRecordButton={false}
+                    hideUntilActive={true}
+                    variant="dashboard"
+                    disabled={isSaving}
                   />
                 </div>
 
@@ -689,6 +752,31 @@ export function Dashboard() {
                   </div>
 
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleAudioRecording()}
+                      aria-label={
+                        isRecordingAudio
+                          ? "Stop Recording"
+                          : audio.previewUrl || audio.audioUrl
+                            ? "Record Again"
+                            : "Begin Recording"
+                      }
+                      className="p-2 text-rusty-copper hover:text-vintage-burgundy transition-colors hover:scale-110"
+                      title={
+                        isRecordingAudio
+                          ? "Stop Recording"
+                          : audio.previewUrl || audio.audioUrl
+                            ? "Record Again"
+                            : "Begin Recording"
+                      }
+                    >
+                      {isRecordingAudio ? (
+                        <Square className="w-7 h-7" />
+                      ) : (
+                        <Mic className="w-7 h-7" />
+                      )}
+                    </button>
                     {images.length >= 5 ? (
                       <div className="p-2 text-rusty-copper/40 cursor-not-allowed group relative">
                         <ImageIcon className="w-7 h-7" />
@@ -710,14 +798,17 @@ export function Dashboard() {
                         <ImageIcon className="w-7 h-7" />
                       </label>
                     )}
-                    <MagicButton type="submit" disabled={isSaving}>
+                    <MagicButton
+                      type="submit"
+                      disabled={isSaving || isRecordingAudio}
+                    >
                       {isSaving ? (
                         <span className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          保存中...
+                          Sealing...
                         </span>
                       ) : (
-                        "save"
+                        "Seal"
                       )}
                     </MagicButton>
                   </div>
@@ -868,7 +959,7 @@ export function Dashboard() {
               <button
                 onClick={() => {
                   if (!session?.user) {
-                    toast.error("请先登录账号");
+                    toast.error("Sign in before continuing.");
                     setAuthModalInitialMode("login");
                     setIsAuthModalOpen(true);
                     return;
@@ -891,7 +982,7 @@ export function Dashboard() {
                     ? "bg-[#8B5A5A] text-[#EBE5DC] border-[#8B5A5A] hover:bg-[#7A4A4A]"
                     : "bg-white/50 text-[#4A4540]/60 border-[#4A4540]/30 hover:bg-white/80 hover:text-[#4A4540]",
                 )}
-                title={isDeleteMode ? "执行遗忘" : "批量遗忘"}>
+                title={isDeleteMode ? "Cast Obliviate" : "Enter Obliviate Mode"}>
                 {isDeleting ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
@@ -899,7 +990,7 @@ export function Dashboard() {
                     <Trash2 className="w-5 h-5" />
                     {isDeleteMode && (
                       <span className="font-['Cinzel'] font-bold text-sm">
-                        遗忘
+                        Obliviate
                       </span>
                     )}
                   </>
@@ -914,7 +1005,7 @@ export function Dashboard() {
             <OldFriendButton
               onClick={() => {
                 if (!session?.user) {
-                  toast.error("请先登录账号");
+                  toast.error("Sign in before continuing.");
                   setAuthModalInitialMode("login");
                   setIsAuthModalOpen(true);
                   return;
@@ -1047,7 +1138,7 @@ export function Dashboard() {
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-faded-gold/50 to-transparent"></div>
                 <div className="flex items-center gap-2 text-faded-gold font-['Cinzel'] text-lg">
                   <Wand2 className="w-5 h-5" />
-                  <span>✨ 魔杖感应到了相关的记忆...</span>
+                  <span>The wand has sensed kindred memories...</span>
                 </div>
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-faded-gold/50 to-transparent"></div>
               </div>
@@ -1115,7 +1206,7 @@ export function Dashboard() {
 
                     <div className="mt-2 flex justify-between items-center w-full">
                       <span className="text-xs text-faded-gold/60 font-['Caveat']">
-                        语义相关
+                        Kindred Echo
                       </span>
                       <BookOpen className="w-5 h-5 text-faded-gold inline-block" />
                     </div>
@@ -1134,7 +1225,7 @@ export function Dashboard() {
           {!hasMore && listEntries.length > 0 && (
             <div className="col-span-full text-center py-8">
               <p className="text-[#C9B896]/70 font-['STSong'] text-xl italic">
-                记忆提取完毕
+                All memories gathered.
               </p>
             </div>
           )}

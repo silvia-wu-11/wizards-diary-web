@@ -99,6 +99,10 @@ export async function searchRelatedDiaries(
     date: Date;
     tags: string[];
     imageUrls: string[];
+    audioUrl: string | null;
+    audioName: string | null;
+    audioDurationSec: number | null;
+    audioMimeType: string | null;
   }>
 > {
   try {
@@ -118,6 +122,10 @@ export async function searchRelatedDiaries(
         date: Date;
         tags: string[];
         imageUrls: string[];
+        audioUrl: string | null;
+        audioName: string | null;
+        audioDurationSec: number | null;
+        audioMimeType: string | null;
         distance: number;
       }>
     >`
@@ -129,6 +137,10 @@ export async function searchRelatedDiaries(
              de.date,
              de.tags,
              de."imageUrls",
+             de."audioUrl",
+             de."audioName",
+             de."audioDurationSec",
+             de."audioMimeType",
              (dc.embedding <=> ${vectorString}::vector) as distance
       FROM "DiaryEntry" de
       JOIN "DiaryChunk" dc ON de.id = dc."entryId"
@@ -179,6 +191,10 @@ async function fallbackKeywordSearch(
       date: true,
       tags: true,
       imageUrls: true,
+      audioUrl: true,
+      audioName: true,
+      audioDurationSec: true,
+      audioMimeType: true,
     },
   });
 }

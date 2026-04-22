@@ -7,7 +7,12 @@ import { searchRelatedDiaries } from "@/lib/embedding/search";
 import { updateCoreMemoryFromDiary } from "@/lib/memory/update";
 import { uploadImages } from "@/lib/supabase/storage";
 import { after } from "next/server";
-import { toast } from "sonner";
+
+const toast = {
+  error(message: string) {
+    console.warn(`[diary.actions] ${message}`);
+  },
+};
 
 // ─────────────────────────────────────────────
 // 类型：与前端 store 对齐，date 为 ISO string
@@ -27,6 +32,10 @@ export interface DiaryEntryDto {
   date: string;
   tags: string[];
   imageUrls: string[];
+  audioUrl?: string | null;
+  audioName?: string | null;
+  audioDurationSec?: number | null;
+  audioMimeType?: string | null;
 }
 
 export interface CreateEntryInput {
@@ -37,6 +46,10 @@ export interface CreateEntryInput {
   tags?: string[];
   /** Supabase URL 或 base64（data:image/...），base64 会先上传至 Storage */
   imageUrls?: string[];
+  audioUrl?: string | null;
+  audioName?: string | null;
+  audioDurationSec?: number | null;
+  audioMimeType?: string | null;
 }
 
 export interface CreateBookInput {
@@ -53,6 +66,10 @@ function entryFromPrisma(e: {
   date: Date;
   tags: string[];
   imageUrls: string[];
+  audioUrl?: string | null;
+  audioName?: string | null;
+  audioDurationSec?: number | null;
+  audioMimeType?: string | null;
 }): DiaryEntryDto {
   return {
     id: e.id,
@@ -62,6 +79,10 @@ function entryFromPrisma(e: {
     date: e.date.toISOString(),
     tags: e.tags,
     imageUrls: e.imageUrls ?? [],
+    audioUrl: e.audioUrl ?? null,
+    audioName: e.audioName ?? null,
+    audioDurationSec: e.audioDurationSec ?? null,
+    audioMimeType: e.audioMimeType ?? null,
   };
 }
 
@@ -159,6 +180,10 @@ export async function createEntry(
 
   const date = input.date ? new Date(input.date) : new Date();
   const tags = input.tags ?? [];
+  const audioName = input.audioName?.trim() || null;
+  const audioUrl = input.audioUrl ?? null;
+  const audioDurationSec = input.audioDurationSec ?? null;
+  const audioMimeType = input.audioMimeType ?? null;
 
   // base64 图片先上传至 Supabase，获得 URL
   let imageUrls: string[] = input.imageUrls ?? [];
@@ -179,6 +204,10 @@ export async function createEntry(
       date,
       tags,
       imageUrls,
+      audioUrl,
+      audioName,
+      audioDurationSec,
+      audioMimeType,
     },
   });
 
@@ -226,7 +255,18 @@ export async function deleteEntries(ids: string[]): Promise<{ count: number }> {
 export async function updateEntry(
   id: string,
   updates: Partial<
-    Pick<CreateEntryInput, "title" | "content" | "date" | "tags" | "imageUrls">
+    Pick<
+      CreateEntryInput,
+      | "title"
+      | "content"
+      | "date"
+      | "tags"
+      | "imageUrls"
+      | "audioUrl"
+      | "audioName"
+      | "audioDurationSec"
+      | "audioMimeType"
+    >
   >,
 ): Promise<DiaryEntryDto> {
   const userId = await requireAuth();
@@ -261,6 +301,10 @@ export async function updateEntry(
     date?: Date;
     tags?: string[];
     imageUrls?: string[];
+    audioUrl?: string | null;
+    audioName?: string | null;
+    audioDurationSec?: number | null;
+    audioMimeType?: string | null;
     vectorized?: boolean;
   } = {};
   if (updates.title !== undefined) data.title = updates.title?.trim() || null;
@@ -277,6 +321,13 @@ export async function updateEntry(
   if (updates.date !== undefined) data.date = new Date(updates.date);
   if (updates.tags !== undefined) data.tags = updates.tags;
   if (imageUrls !== undefined) data.imageUrls = imageUrls;
+  if (updates.audioUrl !== undefined) data.audioUrl = updates.audioUrl ?? null;
+  if (updates.audioName !== undefined)
+    data.audioName = updates.audioName?.trim() || null;
+  if (updates.audioDurationSec !== undefined)
+    data.audioDurationSec = updates.audioDurationSec ?? null;
+  if (updates.audioMimeType !== undefined)
+    data.audioMimeType = updates.audioMimeType ?? null;
 
   if (newContent === "") {
     toast.error("内容不能为空");
@@ -477,6 +528,10 @@ export async function getEntriesPaginated(
         date: Date;
         tags: string[];
         imageUrls: string[];
+        audioUrl?: string | null;
+        audioName?: string | null;
+        audioDurationSec?: number | null;
+        audioMimeType?: string | null;
       };
 
       // 添加日志输出到服务端控制台，让用户能够看到向量检索结果
@@ -506,6 +561,10 @@ export async function getEntriesPaginated(
         date: e.date.toISOString(),
         tags: e.tags,
         imageUrls: e.imageUrls ?? [],
+        audioUrl: e.audioUrl ?? null,
+        audioName: e.audioName ?? null,
+        audioDurationSec: e.audioDurationSec ?? null,
+        audioMimeType: e.audioMimeType ?? null,
       }));
     } catch (err) {
       console.error("[getEntriesPaginated] semantic search failed:", err);
@@ -573,6 +632,10 @@ export async function searchBookEntries(
       date: e.date.toISOString(),
       tags: e.tags,
       imageUrls: e.imageUrls ?? [],
+      audioUrl: e.audioUrl ?? null,
+      audioName: e.audioName ?? null,
+      audioDurationSec: e.audioDurationSec ?? null,
+      audioMimeType: e.audioMimeType ?? null,
     }));
   } catch (err) {
     console.error("[searchBookEntries] semantic search failed:", err);

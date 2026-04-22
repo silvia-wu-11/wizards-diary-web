@@ -95,6 +95,27 @@ export function ViewEntryModal({
                     </div>
                   )}
 
+                  {entry.audioUrl && (
+                    <div className="rounded-xl border border-rusty-copper/20 bg-rusty-copper/5 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="font-['Cinzel'] text-lg font-bold text-rusty-copper">
+                          {entry.audioName || "Untitled Voice Memory"}
+                        </div>
+                        <div className="font-['Cinzel'] text-sm text-rusty-copper/70">
+                          {typeof entry.audioDurationSec === "number"
+                            ? `${String(Math.floor(entry.audioDurationSec / 60)).padStart(2, "0")}:${String(entry.audioDurationSec % 60).padStart(2, "0")}`
+                            : "00:00"}
+                        </div>
+                      </div>
+                      <audio
+                        controls
+                        src={entry.audioUrl}
+                        className="w-full"
+                        preload="metadata"
+                      />
+                    </div>
+                  )}
+
                   {(entry.bookId || entry.tags.length > 0) && (
                     <div className="flex flex-wrap items-center gap-3 mt-8 pt-6 border-t border-rusty-copper/20">
                       {entry.bookId &&

@@ -22,6 +22,10 @@ export interface DiaryEntry {
   date: string;
   tags: string[];
   imageUrls: string[];
+  audioUrl?: string | null;
+  audioName?: string | null;
+  audioDurationSec?: number | null;
+  audioMimeType?: string | null;
   /** @deprecated 使用 imageUrls，保留用于兼容 */
   images?: string[];
 }
@@ -49,6 +53,10 @@ interface DiaryState {
     date?: string;
     tags?: string[];
     imageUrls?: string[];
+    audioUrl?: string | null;
+    audioName?: string | null;
+    audioDurationSec?: number | null;
+    audioMimeType?: string | null;
     images?: string[];
   }) => Promise<DiaryEntry>;
   addEntry: (entry: DiaryEntry) => Promise<DiaryEntryDto>;
@@ -92,6 +100,10 @@ export const useDiaryStore = create<DiaryState>((setState, getState) => ({
     date?: string;
     tags?: string[];
     imageUrls?: string[];
+    audioUrl?: string | null;
+    audioName?: string | null;
+    audioDurationSec?: number | null;
+    audioMimeType?: string | null;
     images?: string[];
   }) => {
     const urls = entry.imageUrls ?? (entry as { images?: string[] }).images;
@@ -102,6 +114,10 @@ export const useDiaryStore = create<DiaryState>((setState, getState) => ({
       date: entry.date || undefined,
       tags: entry.tags ?? undefined,
       imageUrls: urls?.length ? urls : undefined,
+      audioUrl: entry.audioUrl,
+      audioName: entry.audioName,
+      audioDurationSec: entry.audioDurationSec,
+      audioMimeType: entry.audioMimeType,
     };
     const created = await createEntryAction(input);
     setState({
@@ -119,6 +135,10 @@ export const useDiaryStore = create<DiaryState>((setState, getState) => ({
       date: entry.date || undefined,
       tags: entry.tags ?? undefined,
       imageUrls: urls?.length ? urls : undefined,
+      audioUrl: entry.audioUrl,
+      audioName: entry.audioName,
+      audioDurationSec: entry.audioDurationSec,
+      audioMimeType: entry.audioMimeType,
     };
     const created = await createEntryAction(input);
     setState({
@@ -135,6 +155,10 @@ export const useDiaryStore = create<DiaryState>((setState, getState) => ({
       date: updates.date,
       tags: updates.tags,
       imageUrls: urls,
+      audioUrl: updates.audioUrl,
+      audioName: updates.audioName,
+      audioDurationSec: updates.audioDurationSec,
+      audioMimeType: updates.audioMimeType,
     });
     setState({
       entries: getState().entries.map((e) => (e.id === id ? updated : e)),

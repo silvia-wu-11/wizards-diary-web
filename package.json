@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm db:generate && next dev",
+    "dev:db-remote": "dotenv -e .env -- pnpm next dev",
     "build": "pnpm db:generate && next build",
     "start": "next start",
     "lint": "eslint .",
@@ -21,8 +22,7 @@
     "db:local:start": "pnpm dlx supabase@2.92.1 start",
     "db:local:stop": "pnpm dlx supabase@2.92.1 stop",
     "db:local:status": "pnpm dlx supabase@2.92.1 status",
-    "db:local:reset": "pnpm dlx supabase@2.92.1 db reset",
-    "db:compensate-vectors": "dotenv -e .env -- tsx scripts/compensate-vectors.ts"
+    "db:local:reset": "pnpm dlx supabase@2.92.1 db reset"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.6",

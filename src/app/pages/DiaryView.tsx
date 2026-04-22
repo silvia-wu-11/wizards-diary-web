@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit3,
-  Image as ImageIcon,
   Loader2,
   Plus,
   Search,
@@ -23,9 +22,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
+import {
+  createEmptyDiaryAudioDraft,
+  uploadDiaryAudio,
+  type DiaryAudioDraft,
+} from "../../lib/audio";
 import { ActionButton } from "../components/ActionButton";
+import { AudioRecorderField } from "../components/AudioRecorderField";
 import { AuthModal } from "../components/auth/AuthModal";
-import { DeleteBookModal } from "../components/DeleteBookModal";
+import { ConfirmActionModal } from "../components/ConfirmActionModal";
 import {
   DiaryImage,
   ImagePreviewGallery,
@@ -85,6 +90,7 @@ export function DiaryView({
   const [isSaving, setIsSaving] = useState(false);
   const [isTearingEntry, setIsTearingEntry] = useState(false);
   const [isOldFriendOpen, setIsOldFriendOpen] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
 
   const isNewEntry = id === "new";
   const [isEditing, setIsEditing] = useState(isNewEntry);
@@ -106,6 +112,18 @@ export function DiaryView({
     })),
   );
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [audio, setAudio] = useState<DiaryAudioDraft>(() =>
+    entry?.audioUrl
+      ? {
+          file: null,
+          previewUrl: entry.audioUrl,
+          audioUrl: entry.audioUrl,
+          name: entry.audioName ?? "",
+          durationSec: entry.audioDurationSec ?? null,
+          mimeType: entry.audioMimeType ?? null,
+        }
+      : createEmptyDiaryAudioDraft(),
+  );
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     await handleImageUploadHelper(e, images, setImages, 6);
@@ -126,11 +144,27 @@ export function DiaryView({
         loading: false,
       })),
     );
+    setAudio(
+      entry?.audioUrl
+        ? {
+            file: null,
+            previewUrl: entry.audioUrl,
+            audioUrl: entry.audioUrl,
+            name: entry.audioName ?? "",
+            durationSec: entry.audioDurationSec ?? null,
+            mimeType: entry.audioMimeType ?? null,
+          }
+        : createEmptyDiaryAudioDraft(),
+    );
   }, [id, entry]);
 
   const handleSave = async () => {
+    if (isRecordingAudio) {
+      toast.error("Stop recording before sealing the page.");
+      return;
+    }
     if (images.some((img) => img.loading)) {
-      toast.error("请等待图片加载完成后再保存");
+      toast.error("Wait for the images to settle before sealing the page.");
       return;
     }
     let finalTags = editTags;
@@ -142,13 +176,24 @@ export function DiaryView({
 
     // 检查登录状态
     if (!session?.user) {
-      toast.error("请先登录账号");
+      toast.error("Sign in before continuing.");
       setIsAuthModalOpen(true);
       return;
     }
 
     setIsSaving(true);
     try {
+      let uploadedAudio = null as null | {
+        url: string;
+        mimeType: string;
+      };
+      if (audio.file) {
+        uploadedAudio = await uploadDiaryAudio(
+          audio.file,
+          isNewEntry ? undefined : entry?.id,
+        );
+      }
+
       if (isNewEntry) {
         const newEntry = await addEntry({
           id: uuidv4(),
@@ -160,10 +205,14 @@ export function DiaryView({
           imageUrls: images
             .filter((img) => !img.loading && img.url)
             .map((img) => img.url),
+          audioUrl: uploadedAudio?.url ?? audio.audioUrl,
+          audioName: audio.name.trim() || null,
+          audioDurationSec: audio.durationSec,
+          audioMimeType: uploadedAudio?.mimeType ?? audio.mimeType,
         });
         console.log("newEntry", newEntry);
 
-        toast.success("日记已保存");
+        toast.success("Sealed in starlight.");
         router.replace(`/diary/${newEntry?.id}?open=1`);
       } else if (entry) {
         await updateEntry(entry.id, {
@@ -173,12 +222,18 @@ export function DiaryView({
             .filter((img) => !img.loading && img.url)
             .map((img) => img.url),
           tags: finalTags,
+          audioUrl: uploadedAudio?.url ?? audio.audioUrl ?? null,
+          audioName: audio.name.trim() || null,
+          audioDurationSec: audio.durationSec ?? null,
+          audioMimeType: uploadedAudio?.mimeType ?? audio.mimeType ?? null,
         });
-        toast.success("日记已更新");
+        toast.success("The page has been amended.");
       }
       setIsEditing(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "保存失败");
+      toast.error(
+        err instanceof Error ? err.message : "The page could not be sealed.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -211,7 +266,7 @@ export function DiaryView({
     await new Promise((r) => setTimeout(r, 800));
     try {
       await deleteEntry(entry.id);
-      toast.success("记忆已抹除");
+      toast.success("The memory has been lifted from the page.");
       if (targetEntry) {
         // 保持书本翻开，展示前一条或下一条日记
         router.replace(`/diary/${targetEntry.id}?open=1`);
@@ -219,7 +274,9 @@ export function DiaryView({
         router.replace("/");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(
+        err instanceof Error ? err.message : "The tearing spell failed.",
+      );
       setIsTearingEntry(false);
     }
   };
@@ -232,11 +289,13 @@ export function DiaryView({
     setIsDeletingBook(true);
     try {
       await deleteBook(currentBookId);
-      toast.success("日记本已删除");
+      toast.success("The diary has been banished.");
       setShowDeleteConfirm(false);
       router.push("/");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "删除失败");
+      toast.error(
+        err instanceof Error ? err.message : "The banishing spell failed.",
+      );
     } finally {
       setIsDeletingBook(false);
     }
@@ -302,7 +361,7 @@ export function DiaryView({
       );
 
       if (exactMatches.length === 0 && semanticMatches.length === 0) {
-        toast.info("无匹配结果");
+        toast.info("No matching memory answered the call.");
         return;
       }
 
@@ -312,7 +371,7 @@ export function DiaryView({
       setShowSearchResultModal(true);
     } catch (err) {
       console.error(err);
-      toast.error("搜索失败，请稍后重试");
+      toast.error("The seeking spell failed. Try again in a moment.");
     } finally {
       setIsSearching(false);
     }
@@ -464,6 +523,7 @@ export function DiaryView({
                   animate={{ opacity: 1, scale: 1, rotateY: 0 }}
                   exit={{ opacity: 0, scale: 0.9, rotateY: 20 }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
+                  data-testid="diary-cover"
                   className="w-full max-w-[420px] h-[620px] bg-leather rounded-r-3xl rounded-l-md shadow-[30px_20px_50px_rgba(0,0,0,0.9)] border-[6px] border-[#1a1412] relative cursor-pointer group flex items-center justify-center overflow-hidden"
                   onClick={() => setIsOpen(true)}
                   onMouseEnter={() => setIsHoveringCover(true)}
@@ -668,39 +728,63 @@ export function DiaryView({
                         </h1>
                       )}
 
-                      {/* Magical Illustration Placeholder based on tags or just decorative */}
-
                       <div className="w-full flex-1 min-h-[200px] border-2 border-dashed border-vintage-burgundy/20 rounded-xl mb-4 flex flex-col items-center justify-center bg-black/5 opacity-80 mix-blend-multiply relative overflow-hidden">
-                        {images.length > 0 ? (
-                          <ImagePreviewGallery
-                            images={images}
-                            setImages={setImages}
-                            isEditing={isEditing}
-                            previewIndex={previewIndex}
-                            setPreviewIndex={setPreviewIndex}
-                            layoutStyle="grid"
-                          />
-                        ) : (
-                          <>
+                        <ImagePreviewGallery
+                          images={images}
+                          setImages={setImages}
+                          isEditing={isEditing}
+                          maxImages={6}
+                          previewIndex={previewIndex}
+                          setPreviewIndex={setPreviewIndex}
+                          layoutStyle="grid"
+                          showUploadButton={true}
+                          onImageUpload={handleImageUpload}
+                          emptyState={
                             <p className="font-['Caveat'] text-2xl text-vintage-burgundy/50 z-10 rotate-[-5deg]">
                               ~ A memory captured in time ~
                             </p>
-                          </>
-                        )}
+                          }
+                        />
                       </div>
-                      {isEditing && images.length < 6 && (
-                        <div className="flex justify-center mb-2">
-                          <label className="px-4 py-1 flex items-center gap-1 text-rusty-copper hover:text-white bg-rusty-copper/10 hover:bg-rusty-copper rounded-full border border-rusty-copper/40 hover:border-rusty-copper transition-all cursor-pointer font-['Cinzel'] font-bold text-sm shadow-sm group">
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept="image/*"
-                              multiple
-                              onChange={handleImageUpload}
+
+                      {(isEditing ||
+                        audio.audioUrl ||
+                        audio.previewUrl ||
+                        isRecordingAudio) && (
+                        <div className="mb-3">
+                          {isEditing ? (
+                            <AudioRecorderField
+                              value={audio}
+                              onChange={setAudio}
+                              onRecordingChange={setIsRecordingAudio}
+                              variant="diary-view"
+                              hideUntilActive={true}
+                              disabled={isSaving}
                             />
-                            <ImageIcon className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span>Add Image</span>
-                          </label>
+                          ) : (
+                            <div className="flex flex-col gap-3 rounded-lg border border-faded-gold/15 bg-black/5 px-4 py-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="font-['Cinzel'] text-sm text-rusty-copper">
+                                  {audio.name ||
+                                    entry?.audioName ||
+                                    "Untitled Voice Memory"}
+                                </div>
+                                <span className="font-['Cinzel'] text-xs text-rusty-copper/70">
+                                  {entry?.audioDurationSec
+                                    ? `${String(Math.floor(entry.audioDurationSec / 60)).padStart(2, "0")}:${String(entry.audioDurationSec % 60).padStart(2, "0")}`
+                                    : "00:00"}
+                                </span>
+                              </div>
+                              {entry?.audioUrl && (
+                                <audio
+                                  controls
+                                  src={entry.audioUrl}
+                                  className="w-full"
+                                  preload="metadata"
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -887,7 +971,7 @@ export function DiaryView({
               <button
                 onClick={handleDeleteEntry}
                 disabled={isTearingEntry}
-                aria-label="删除此页日记"
+                aria-label="Tear this page"
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all backdrop-blur-sm font-['Cinzel'] font-bold",
                   "opacity-25 hover:opacity-100 hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/50",
@@ -904,7 +988,7 @@ export function DiaryView({
                 label="CHUM"
                 onClick={() => {
                   if (!session?.user) {
-                    toast.error("请先登录账号");
+                    toast.error("Sign in before continuing.");
                     setIsAuthModalOpen(true);
                     return;
                   }
@@ -935,9 +1019,13 @@ export function DiaryView({
                     <Edit3 className="w-5 h-5" />
                   )
                 }
-                label={isSaving ? "保存中..." : "Save"}
+                label={isSaving ? "Sealing..." : "Save"}
                 onClick={handleSave}
-                disabled={isSaving || images.some((img) => img.loading)}
+                disabled={
+                  isSaving ||
+                  isRecordingAudio ||
+                  images.some((img) => img.loading)
+                }
                 className="bg-faded-gold text-[#2c2420] border-faded-gold hover:bg-yellow hover:border-white shadow-[0_0_15px_rgba(201,184,150,0.6)] disabled:opacity-70 disabled:cursor-not-allowed"
               />
             )}
@@ -960,7 +1048,7 @@ export function DiaryView({
             {isOpen && currentBookId && !isEditing && (
               <button
                 onClick={handleAddEntry}
-                aria-label="添加新日记"
+                aria-label="Add a new page"
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-full border-2 transition-all backdrop-blur-sm font-['Cinzel'] font-bold",
                   "opacity-25 hover:opacity-100 hover:bg-faded-gold/20 hover:text-faded-gold hover:border-faded-gold/50",
@@ -1067,11 +1155,15 @@ export function DiaryView({
         />
 
         {/* Magical Delete Confirmation Modal */}
-        <DeleteBookModal
+        <ConfirmActionModal
           isOpen={showDeleteConfirm}
           onClose={() => setShowDeleteConfirm(false)}
           onConfirm={confirmDelete}
-          isDeleting={isDeletingBook}
+          isSubmitting={isDeletingBook}
+          title="Obliviate Diary?"
+          description="Are you sure you want to banish this entire diary to the void? This spell cannot be undone, and all memories within will be lost forever."
+          confirmText="Yes"
+          cancelText="Cancel"
         />
       </div>
     </>

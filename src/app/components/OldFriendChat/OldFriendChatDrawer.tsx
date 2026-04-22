@@ -14,7 +14,7 @@ import { createPortal, flushSync } from "react-dom";
  */
 const INITIAL_MESSAGE: ChatMessage = {
   role: "assistant",
-  content: "好久不见，最近有什么想聊聊的吗？",
+  content: "It has been a while. What stirs your heart tonight?",
 };
 
 interface OldFriendChatDrawerProps {
@@ -441,7 +441,8 @@ export function OldFriendChatDrawer({
       if (!res.ok) {
         // 尝试解析错误信息，解析失败则返回空对象
         const data = await res.json().catch(() => ({}));
-        const errorMsg = (data as { error?: string }).error ?? "请求失败";
+        const errorMsg =
+          (data as { error?: string }).error ?? "The request spell failed.";
         const detail = (data as { detail?: string }).detail;
         if (detail) {
           try {
@@ -459,7 +460,7 @@ export function OldFriendChatDrawer({
       const reader = res.body?.getReader();
       // 读取器不存在时抛出错误
       if (!reader) {
-        throw new Error("流式响应不可用");
+        throw new Error("The streaming stream could not be opened.");
       }
 
       // 创建文本解码器，用于将二进制流转换为字符串
@@ -504,7 +505,7 @@ export function OldFriendChatDrawer({
         if (!reasoning || hasContent) return;
         if (!hasThinking) {
           hasThinking = true;
-          flushSync(() => setStreamingContent("思考中"));
+          flushSync(() => setStreamingContent("Reading the runes..."));
         }
       };
 
@@ -621,7 +622,7 @@ export function OldFriendChatDrawer({
       // 流式响应结束后，将完整的AI回复添加到消息列表
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: fullContent || "（无回复）" },
+        { role: "assistant", content: fullContent || "(No reply was woven.)" },
       ]);
     } catch (err) {
       // 捕获所有错误，将错误信息作为AI回复添加到消息列表
@@ -629,7 +630,9 @@ export function OldFriendChatDrawer({
         ...prev,
         {
           role: "assistant",
-          content: `抱歉，出了点小问题：${err instanceof Error ? err.message : "请稍后再试"}`,
+          content: err instanceof Error
+            ? `The spell sputtered: ${err.message}`
+            : "The spell sputtered. Please try again soon.",
         },
       ]);
     } finally {
@@ -676,14 +679,14 @@ export function OldFriendChatDrawer({
                     CHUM
                   </h2>
                   <p className="text-xs text-faded-gold/60">
-                    基于你的日记与你对话
+                    Speaks with you through your diary
                   </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
                 className="p-2 rounded-full hover:bg-faded-gold/10 text-faded-gold/80 hover:text-faded-gold transition-colors"
-                aria-label="关闭">
+                aria-label="Close drawer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -745,7 +748,7 @@ export function OldFriendChatDrawer({
                   onKeyDown={(e) =>
                     e.key === "Enter" && !e.shiftKey && handleSend()
                   }
-                  placeholder="输入你想说的..."
+                  placeholder="Speak what rests on your mind..."
                   className="flex-1 bg-white/10 border border-faded-gold/40 rounded-full py-2.5 pl-4 pr-4 outline-none focus:ring-2 focus:ring-faded-gold/50 text-faded-gold placeholder:text-faded-gold/40 font-['Caveat'] text-lg"
                   disabled={isLoading}
                 />
@@ -753,7 +756,7 @@ export function OldFriendChatDrawer({
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className="p-2.5 rounded-full bg-faded-gold/30 hover:bg-faded-gold/50 text-faded-gold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  aria-label="发送">
+                  aria-label="Send message">
                   <Send className="w-5 h-5" />
                 </button>
               </div>

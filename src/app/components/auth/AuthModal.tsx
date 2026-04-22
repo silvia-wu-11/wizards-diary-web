@@ -90,7 +90,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
         redirect: false,
       });
       if (result?.error) {
-        setFormError('账号或密码错误');
+        setFormError('The sigil rejected that username or password.');
         return;
       }
       if (result?.ok) {
@@ -100,7 +100,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
         router.refresh();
       }
     } catch {
-      setFormError('登录失败，请重试');
+      setFormError('The sign-in spell failed. Try again.');
     } finally {
       setIsLoading(false);
     }
@@ -138,8 +138,9 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
 
       const result = await register(formData);
       if (!result.success) {
-        if (result.error.includes('账号')) setUsernameError(result.error);
-        else if (result.error.includes('密码')) setConfirmPasswordError(result.error);
+        const normalizedError = result.error.toLowerCase();
+        if (normalizedError.includes('username')) setUsernameError(result.error);
+        else if (normalizedError.includes('password')) setConfirmPasswordError(result.error);
         else setFormError(result.error);
         return;
       }
@@ -157,11 +158,11 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
         useDiaryStore.setState({ isLoaded: false });
       }
       if (signInResult?.error) {
-        setFormError('账号已创建，请手动登录');
+        setFormError('Your account is ready. Sign in to continue.');
       }
       // redirect: true 成功时会直接跳转，不会执行到此
     } catch {
-      setFormError('注册失败，请重试');
+      setFormError('The binding ritual failed. Try again.');
     } finally {
       setIsLoading(false);
     }
@@ -172,7 +173,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
       <DialogContent className="bg-castle-stone border-rusty-copper text-parchment-white max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-faded-gold font-display">
-            {session ? '账户' : mode === 'login' ? '登录' : '创建账号'}
+            {session ? 'Account' : mode === 'login' ? 'Sign In' : 'Create Account'}
           </DialogTitle>
         </DialogHeader>
 
@@ -180,7 +181,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
           {session ? (
             <div className="space-y-4">
               <p className="text-parchment-white/80">
-                已登录为 <span className="text-faded-gold">{session.user?.username}</span>
+                Signed in as <span className="text-faded-gold">{session.user?.username}</span>
               </p>
               <Button
                 variant="outline"
@@ -192,7 +193,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
                   router.refresh();
                 }}
               >
-                登出
+                Sign Out
               </Button>
             </div>
           ) : (
@@ -209,11 +210,11 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
           {!session && mode === 'login' ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="auth-username">账号</Label>
+                <Label htmlFor="auth-username">Username</Label>
                 <Input
                   id="auth-username"
                   type="text"
-                  placeholder="你的账号"
+                  placeholder="Your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="bg-parchment-white/10 border-rusty-copper text-parchment-white"
@@ -222,7 +223,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
                 {usernameError && <p className="text-sm text-red-300">{usernameError}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="auth-password">密码</Label>
+                <Label htmlFor="auth-password">Password</Label>
                 <PasswordInput
                   id="auth-password"
                   placeholder="••••••••"
@@ -237,17 +238,17 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
                 disabled={isLoading}
                 className="w-full bg-vintage-burgundy hover:bg-vintage-burgundy/90"
               >
-                {isLoading ? '登录中...' : '登录'}
+                {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="auth-username">账号</Label>
+                <Label htmlFor="auth-username">Username</Label>
                 <Input
                   id="auth-username"
                   type="text"
-                  placeholder="你的账号"
+                  placeholder="Your username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="bg-parchment-white/10 border-rusty-copper text-parchment-white"
@@ -256,20 +257,20 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
                 {usernameError && <p className="text-sm text-red-300">{usernameError}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="auth-password">密码</Label>
+                <Label htmlFor="auth-password">Password</Label>
                 <PasswordInput
                   id="auth-password"
-                  placeholder="至少 8 位"
+                  placeholder="At least 8 characters"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="bg-parchment-white/10 border-rusty-copper text-parchment-white"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="auth-confirm">确认密码</Label>
+                <Label htmlFor="auth-confirm">Confirm Password</Label>
                 <PasswordInput
                   id="auth-confirm"
-                  placeholder="再次输入密码"
+                  placeholder="Repeat your password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="bg-parchment-white/10 border-rusty-copper text-parchment-white"
@@ -277,11 +278,11 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="auth-name">昵称（可选）</Label>
+                <Label htmlFor="auth-name">Nickname (Optional)</Label>
                 <Input
                   id="auth-name"
                   type="text"
-                  placeholder="你的昵称"
+                  placeholder="Your nickname"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="bg-parchment-white/10 border-rusty-copper text-parchment-white"
@@ -292,7 +293,7 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
                 disabled={isLoading}
                 className="w-full bg-vintage-burgundy hover:bg-vintage-burgundy/90"
               >
-                {isLoading ? '创建中...' : '创建账号'}
+                {isLoading ? 'Binding Account...' : 'Create Account'}
               </Button>
             </form>
           )}
@@ -301,24 +302,24 @@ export function AuthModal({ open, onOpenChange, initialMode = 'login', onSuccess
           <p className="text-center text-sm text-parchment-white/70">
             {mode === 'login' ? (
               <>
-                还没有账号？{' '}
+                No account yet?{' '}
                 <button
                   type="button"
                   className="text-faded-gold underline hover:no-underline"
                   onClick={() => setMode('register')}
                 >
-                  切换到创建账号
+                  Create one
                 </button>
               </>
             ) : (
               <>
-                已有账号？{' '}
+                Already have an account?{' '}
                 <button
                   type="button"
                   className="text-faded-gold underline hover:no-underline"
                   onClick={() => setMode('login')}
                 >
-                  去登录
+                  Sign in instead
                 </button>
               </>
             )}

@@ -47,7 +47,7 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setFormError('账号或密码错误');
+        setFormError('The sigil rejected that username or password.');
         return;
       }
       if (result?.ok) {
@@ -56,7 +56,7 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch {
-      setFormError('登录失败，请重试');
+      setFormError('The sign-in spell failed. Try again.');
     } finally {
       setIsLoading(false);
     }
@@ -66,9 +66,11 @@ export default function LoginPage() {
     <div className="mx-auto max-w-sm space-y-8">
       <div className="text-center">
         <h1 className="font-display text-2xl tracking-widest text-faded-gold">
-          魔法日记本
+          Wizard&apos;s Diary
         </h1>
-        <p className="mt-2 text-sm text-parchment-white/80">登录以继续</p>
+        <p className="mt-2 text-sm text-parchment-white/80">
+          Sign in to resume your tale.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4" data-onboarding-target="step1-login">
@@ -82,13 +84,13 @@ export default function LoginPage() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="username">账号</Label>
+          <Label htmlFor="username">Username</Label>
           <Input
             id="username"
             name="username"
             type="text"
             autoComplete="username"
-            placeholder="你的账号"
+            placeholder="Your username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="bg-parchment-white/10 border-rusty-copper text-parchment-white placeholder:text-parchment-white/50"
@@ -103,7 +105,7 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">密码</Label>
+          <Label htmlFor="password">Password</Label>
           <PasswordInput
             id="password"
             name="password"
@@ -121,17 +123,17 @@ export default function LoginPage() {
           disabled={isLoading}
           className="w-full bg-vintage-burgundy hover:bg-vintage-burgundy/90 text-parchment-white"
         >
-          {isLoading ? '登录中...' : '登录'}
+          {isLoading ? 'Signing In...' : 'Sign In'}
         </Button>
       </form>
 
       <p className="text-center text-sm text-parchment-white/70">
-        还没有账号？{' '}
+        No account yet?{' '}
         <Link
           href="/register"
           className="text-faded-gold underline hover:no-underline"
         >
-          切换到创建账号
+          Create one
         </Link>
       </p>
     </div>

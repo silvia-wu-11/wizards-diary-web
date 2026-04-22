@@ -4,27 +4,27 @@ import { z } from 'zod';
 export const signInSchema = z.object({
   username: z
     .string()
-    .min(1, '请输入账号'),
+    .min(1, 'Enter your username'),
   password: z
     .string()
-    .min(1, '请输入密码'),
+    .min(1, 'Enter your password'),
 });
 
 /** 注册表单校验（服务端） */
 export const registerSchema = z.object({
   username: z
     .string()
-    .min(3, '账号至少 3 个字符')
-    .max(20, '账号最多 20 个字符')
-    .regex(/^[a-zA-Z0-9_]+$/, '账号只能包含字母、数字和下划线'),
+    .min(3, 'Username must be at least 3 characters')
+    .max(20, 'Username must be 20 characters or fewer')
+    .regex(/^[a-zA-Z0-9_]+$/, 'Username may only contain letters, numbers, and underscores'),
   password: z
     .string()
-    .min(8, '密码至少 8 位')
-    .max(72, '密码过长'),
+    .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password is too long'),
   confirmPassword: z.string(),
   name: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: '两次密码不一致',
+  message: 'Passwords do not match',
   path: ['confirmPassword'],
 });
 

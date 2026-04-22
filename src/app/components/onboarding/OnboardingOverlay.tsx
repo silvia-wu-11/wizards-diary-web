@@ -17,19 +17,19 @@ const STEP_CONFIG: Record<
   { title: string; description: string; nextLabel: string }
 > = {
   1: {
-    title: '开启魔法之旅',
-    description: '请先注册或登录账号，开启你的魔法日记之旅',
-    nextLabel: '下一步',
+    title: 'Begin the Enchanted Tale',
+    description: 'Sign in or create an account to awaken your magical diary.',
+    nextLabel: 'Next',
   },
   2: {
-    title: '创建你的第一本日记本',
-    description: '在书架处点击「+」添加你的第一本日记本，并填写信息完成创建',
-    nextLabel: '下一步',
+    title: 'Bind Your First Grimoire',
+    description: 'Tap the "+" on the shelf, then name and bind your very first book.',
+    nextLabel: 'Next',
   },
   3: {
-    title: '写下第一篇日记',
-    description: '点击刚刚创建的日记本打开它，在日记本内写下你的第一篇日记',
-    nextLabel: '打开日记本',
+    title: 'Write the First Page',
+    description: 'Open the grimoire you just bound and inscribe your first memory within.',
+    nextLabel: 'Open the Book',
   },
 };
 
@@ -135,7 +135,7 @@ export function OnboardingOverlay({
                 onClick={onCancel}
                 className="border-[#8B5A5A]/50 text-[#4A4540] hover:bg-[#8B5A5A]/10"
               >
-                取消
+                Leave It Be
               </Button>
               <Button
                 onClick={onNext}

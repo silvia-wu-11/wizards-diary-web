@@ -64,8 +64,10 @@ export default function RegisterPage() {
       const result = await register(formData);
 
       if (!result.success) {
-        if (result.error.includes("账号")) setUsernameError(result.error);
-        else if (result.error.includes("密码"))
+        const normalizedError = result.error.toLowerCase();
+        if (normalizedError.includes("username"))
+          setUsernameError(result.error);
+        else if (normalizedError.includes("password"))
           setConfirmPasswordError(result.error);
         else setFormError(result.error);
         return;
@@ -77,11 +79,11 @@ export default function RegisterPage() {
         redirect: false,
       });
       if (!signInResult) {
-        setFormError("注册成功，但自动登录失败，请手动登录");
+        setFormError("Your account is ready. Sign in to continue.");
         return;
       }
       if (signInResult?.error) {
-        setFormError("注册成功，但自动登录失败，请手动登录");
+        setFormError("Your account is ready. Sign in to continue.");
         return;
       }
       if (signInResult?.ok) {
@@ -90,7 +92,7 @@ export default function RegisterPage() {
         router.refresh();
       }
     } catch {
-      setFormError("注册失败，请重试");
+      setFormError("The binding ritual failed. Try again.");
     } finally {
       setIsLoading(false);
     }
@@ -100,14 +102,16 @@ export default function RegisterPage() {
     <div className="mx-auto max-w-sm space-y-8">
       <div className="text-center">
         <h1 className="font-display text-2xl tracking-widest text-faded-gold">
-          创建账号
+          Create Account
         </h1>
-        <p className="mt-2 text-sm text-parchment-white/80">加入魔法日记本</p>
+        <p className="mt-2 text-sm text-parchment-white/80">
+          Join the diary and bind your first sigil.
+        </p>
       </div>
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-4"
+        className="space-y-5 [&_label[data-slot=label]]:text-[rgb(201,184,150)]"
         data-onboarding-target="step1-login">
         {formError && (
           <div
@@ -118,28 +122,30 @@ export default function RegisterPage() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="username">账号</Label>
+          <Label htmlFor="username">Username</Label>
           <Input
             id="username"
             name="username"
             type="text"
             autoComplete="username"
-            placeholder="你的账号"
+            placeholder="Your username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="bg-parchment-white/10 border-rusty-copper text-parchment-white placeholder:text-parchment-white/50"
             aria-invalid={!!usernameError}
           />
-          {usernameError && <p className="text-sm text-red-300">{usernameError}</p>}
+          {usernameError && (
+            <p className="text-sm text-red-300">{usernameError}</p>
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">密码</Label>
+          <Label htmlFor="password">Password</Label>
           <PasswordInput
             id="password"
             name="password"
             autoComplete="new-password"
-            placeholder="至少 8 位"
+            placeholder="At least 8 characters"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="bg-parchment-white/10 border-rusty-copper text-parchment-white placeholder:text-parchment-white/50"
@@ -147,12 +153,12 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">确认密码</Label>
+          <Label htmlFor="confirmPassword">Confirm Password</Label>
           <PasswordInput
             id="confirmPassword"
             name="confirmPassword"
             autoComplete="new-password"
-            placeholder="再次输入密码"
+            placeholder="Repeat your password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="bg-parchment-white/10 border-rusty-copper text-parchment-white placeholder:text-parchment-white/50"
@@ -161,13 +167,13 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="name">昵称（可选）</Label>
+          <Label htmlFor="name">Nickname (Optional)</Label>
           <Input
             id="name"
             name="name"
             type="text"
             autoComplete="name"
-            placeholder="你的昵称"
+            placeholder="Your nickname"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="bg-parchment-white/10 border-rusty-copper text-parchment-white placeholder:text-parchment-white/50"
@@ -178,16 +184,16 @@ export default function RegisterPage() {
           type="submit"
           disabled={isLoading}
           className="w-full bg-vintage-burgundy hover:bg-vintage-burgundy/90 text-parchment-white">
-          {isLoading ? "创建中..." : "创建账号"}
+          {isLoading ? "Binding Account..." : "Create Account"}
         </Button>
       </form>
 
       <p className="text-center text-sm text-parchment-white/70">
-        已有账号？{" "}
+        Already have an account?{" "}
         <Link
           href="/login"
           className="text-faded-gold underline hover:no-underline">
-          去登录
+          Sign in instead
         </Link>
       </p>
     </div>

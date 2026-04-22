@@ -162,12 +162,12 @@ export function CreateBookModal({
                   {isCreating ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      正在装订...
+                      Binding the Grimoire...
                     </>
                   ) : (
                     <>
                       <BookOpen className="w-5 h-5" />
-                      密封装订
+                      Seal the Binding
                     </>
                   )}
                 </button>

@@ -52,7 +52,7 @@ export function SearchResultModal({
             />
             <div className="relative p-6 flex flex-col flex-1 min-h-0">
               <h3 className="text-xl font-['Cinzel'] font-bold text-faded-gold mb-4">
-                选择要跳转的日记
+                Choose a Page to Visit
               </h3>
               <div className="flex-1 overflow-y-auto magic-scrollbar space-y-4 pr-2">
                 {/* 精确匹配列表 */}
@@ -93,8 +93,8 @@ export function SearchResultModal({
                   <div className="space-y-2 pt-2">
                     <div className="flex items-center gap-2 mb-3">
                       <div className="h-px bg-faded-gold/30 flex-1"></div>
-                      <span className="text-xs font-['Cinzel'] text-faded-gold/60">
-                        相关记忆
+                      <span className="text-s font-['Cinzel'] text-faded-gold/60">
+                        Kindred Echoes
                       </span>
                       <div className="h-px bg-faded-gold/30 flex-1"></div>
                     </div>
@@ -130,14 +130,14 @@ export function SearchResultModal({
 
                 {entries.length === 0 && semanticEntries.length === 0 && (
                   <div className="text-center py-8 text-faded-gold/50 font-['Caveat'] text-lg">
-                    未找到相关的日记
+                    No kindred pages answered the call.
                   </div>
                 )}
               </div>
               <button
                 onClick={onClose}
                 className="mt-4 px-4 py-2 rounded-full border border-faded-gold/30 text-faded-gold hover:bg-faded-gold/10 transition-colors font-['Cinzel'] text-sm">
-                取消
+                Keep Wandering
               </button>
             </div>
           </motion.div>

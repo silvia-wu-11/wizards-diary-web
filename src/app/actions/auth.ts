@@ -21,10 +21,12 @@ export async function register(formData: FormData): Promise<RegisterResult> {
     const parsed = registerSchema.safeParse(raw);
     if (!parsed.success) {
       const first = parsed.error.issues[0];
-      const msg = first?.message ?? '请求参数无效';
-      if (msg.includes('两次密码')) return { success: false, error: '两次密码不一致' };
-      if (msg.includes('账号')) return { success: false, error: msg };
-      if (msg.includes('密码')) return { success: false, error: msg };
+      const msg = first?.message ?? 'The request could not be read';
+      if (msg.includes('Passwords do not match')) {
+        return { success: false, error: 'Passwords do not match' };
+      }
+      if (msg.includes('Username')) return { success: false, error: msg };
+      if (msg.includes('Password')) return { success: false, error: msg };
       return { success: false, error: msg };
     }
 
@@ -34,7 +36,7 @@ export async function register(formData: FormData): Promise<RegisterResult> {
       where: { accountId: username },
     });
     if (existing) {
-      return { success: false, error: '该账号已被注册' };
+      return { success: false, error: 'This username is already claimed' };
     }
 
     const passwordHash = await hashPassword(password);
@@ -51,13 +53,13 @@ export async function register(formData: FormData): Promise<RegisterResult> {
     return { success: true };
   } catch (err) {
     console.error('[register]', err);
-    const message = err instanceof Error ? err.message : '注册失败';
+    const message = err instanceof Error ? err.message : 'Registration failed';
     if (message.includes('Unique constraint') || message.includes('unique')) {
-      return { success: false, error: '该账号已被注册' };
+      return { success: false, error: 'This username is already claimed' };
     }
     if (message.includes('connect') || message.includes('database')) {
-      return { success: false, error: '数据库连接失败，请检查 DATABASE_URL 配置' };
+      return { success: false, error: 'Database connection failed. Check the DATABASE_URL setting.' };
     }
-    return { success: false, error: '注册失败，请重试' };
+    return { success: false, error: 'Registration failed. Try again.' };
   }
 }

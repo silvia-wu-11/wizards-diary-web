@@ -2,17 +2,10 @@ import { expect, test } from "@playwright/test";
 
 test.describe("AI Chat Streaming", () => {
   test("真实端到端流式对话", async ({ page }) => {
-    const email = process.env.E2E_EMAIL;
-    const password = process.env.E2E_PASSWORD;
-    test.skip(!email || !password, "需要设置 E2E_EMAIL 与 E2E_PASSWORD");
+    await page.goto("/");
+    await expect(page).not.toHaveURL(/\/login/);
 
-    await page.goto("/login");
-    await page.getByLabel("邮箱").fill(email as string);
-    await page.getByPlaceholder("••••••••").fill(password as string);
-    await page.getByRole("button", { name: "登录" }).click();
-    await page.waitForURL(/\/(?!login)/, { timeout: 30000 });
-
-    const openButton = page.getByRole("button", { name: "与 CHUM 对话" });
+    const openButton = page.getByRole("button", { name: "Speak with CHUM" });
     await expect(openButton).toBeVisible({ timeout: 30000 });
     await openButton.click();
 
@@ -21,7 +14,7 @@ test.describe("AI Chat Streaming", () => {
     );
     await expect(chatArea).toBeVisible();
 
-    const input = page.getByPlaceholder("输入你想说的...");
+    const input = page.getByPlaceholder("Speak what rests on your mind...");
     await expect(input).toBeVisible();
 
     const initialText = (await chatArea.textContent()) ?? "";

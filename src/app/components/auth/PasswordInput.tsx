@@ -28,7 +28,7 @@ export function PasswordInput({ className, error, ...props }: PasswordInputProps
         size="icon"
         className="absolute right-0 top-0 h-full px-3 text-muted-foreground hover:text-foreground"
         onClick={() => setShowPassword((p) => !p)}
-        aria-label={showPassword ? '隐藏密码' : '显示密码'}
+        aria-label={showPassword ? 'Hide password' : 'Reveal password'}
         tabIndex={-1}
       >
         {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
